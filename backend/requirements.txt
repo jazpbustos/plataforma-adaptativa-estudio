@@ -1,0 +1,11 @@
+fastapi==0.141.1
+uvicorn[standard]==0.46.0
+sqlmodel==0.0.42
+pydantic-settings==2.14.0
+google-auth==2.58.0
+requests==2.33.1
+PyJWT==2.12.1
+python-multipart==0.0.26
+# tests
+pytest==9.1.1
+httpx==0.28.1
