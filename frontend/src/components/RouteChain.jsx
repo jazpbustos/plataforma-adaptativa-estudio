@@ -1,39 +1,49 @@
+import { Link } from 'react-router-dom'
 import { MODULES } from '../lib/format.js'
+import { IconCheck, IconLock } from './Icons.jsx'
 
-const Check = () => <svg viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" /></svg>
-const Lock = () => <svg viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true"><rect x="3.5" y="7" width="9" height="6.5" rx="1.5" /><path d="M5.5 7V5.2a2.5 2.5 0 015 0V7" /></svg>
-
-// Ruta en miniatura: cada módulo es una neurona. Hecha / actual (con halo) / bloqueada (punteada).
+/*
+  "Tu recorrido": los tres módulos como tarjetas.
+  Cada una lleva su neurona: encendida (hecha), con halo (actual) o punteada con candado (bloqueada).
+  Una línea con gradiente las conecta, como en la identidad visual.
+*/
 export default function RouteChain({ byModule, current }) {
   const keys = Object.keys(MODULES)
-  const currentIdx = keys.indexOf(current)
+  const idx = keys.indexOf(current)
+
   return (
-    <ol className="flex items-center" aria-label="Ruta de aprendizaje">
-      {keys.map((k, i) => {
-        const { label, color } = MODULES[k]
-        const m = byModule?.[k] ?? { done: 0, total: 0 }
-        const state = m.total && m.done === m.total ? 'done' : i === currentIdx ? 'now' : i < currentIdx ? 'done' : 'locked'
-        return (
-          <li key={k} className="flex min-w-0 flex-1 items-center last:flex-none" style={{ '--c': color }}>
-            <div className="grid justify-items-center gap-1.5">
-              <span
-                className={`relative grid size-9 place-items-center rounded-full border-[1.5px] font-mono text-xs ${
+    <div className="relative">
+      <span aria-hidden="true" className="absolute top-[34px] right-[16%] left-[16%] hidden h-px md:block"
+        style={{ background: 'linear-gradient(90deg, var(--blue), var(--green) 50%, var(--pink))', opacity: .35 }} />
+      <ol className="relative grid gap-3 md:grid-cols-3">
+        {keys.map((k, i) => {
+          const m = MODULES[k], s = byModule?.[k] ?? { done: 0, total: 0 }
+          const state = s.total && s.done === s.total ? 'done' : i === idx ? 'now' : i < idx ? 'done' : 'locked'
+          const status = state === 'done' ? `Completo · ${s.total} sesiones`
+            : state === 'now' ? `${s.done} de ${s.total} sesiones · Continuar ↗`
+            : i === idx + 1 ? `Disponible al terminar ${MODULES[keys[i - 1]].label}` : 'Se desbloquea más adelante'
+          return (
+            <li key={k} className="card grid content-start gap-3 p-5" style={{ '--c': m.color }}>
+              <div className="flex items-center justify-between">
+                <span className={`relative grid size-7 place-items-center rounded-full border-[1.5px] font-mono text-[.68rem] ${
                   state === 'done' ? 'border-[var(--c)] bg-[var(--c)] text-bg'
-                  : state === 'now' ? 'halo border-[var(--c)] bg-bg text-[var(--c)]'
-                  : 'border-dashed border-rule bg-bg text-muted'}`}
-              >
-                {state === 'done' ? <Check /> : state === 'locked' ? <Lock /> : i + 1}
-              </span>
-              <span className={`font-mono text-[.68rem] ${state === 'locked' ? 'text-muted' : 'text-fg'}`}>{label}</span>
-              <span className="font-mono text-[.64rem] text-muted">{m.done}/{m.total}</span>
-            </div>
-            {i < keys.length - 1 && (
-              <span className="mx-2 mb-10 h-0.5 flex-1 rounded"
-                style={{ background: state === 'locked' ? 'var(--border)' : `linear-gradient(90deg, ${color}, ${i + 1 <= currentIdx ? MODULES[keys[i + 1]].color : 'var(--rule)'})` }} />
-            )}
-          </li>
-        )
-      })}
-    </ol>
+                  : state === 'now' ? 'halo border-[var(--c)] bg-card text-[var(--c)]'
+                  : 'border-dashed border-rule bg-card text-muted'}`}>
+                  {state === 'done' ? <IconCheck className="size-3.5" /> : state === 'locked' ? <IconLock className="size-3.5" /> : i + 1}
+                </span>
+                <span className="font-mono text-[.68rem] tracking-wider uppercase" style={{ color: m.color }}>{m.n} / {m.label}</span>
+              </div>
+              <div>
+                <h3 className="text-[1.2rem] font-medium tracking-[-.02em]">{m.verb}</h3>
+                <p className="text-sm text-muted">{m.desc}</p>
+              </div>
+              {state === 'now'
+                ? <Link to={m.path} className="text-sm font-medium" style={{ color: m.color }}>{status}</Link>
+                : <span className="text-sm font-medium" style={{ color: state === 'locked' && i !== idx + 1 ? m.color : m.color, opacity: state === 'locked' ? .85 : 1 }}>{status}</span>}
+            </li>
+          )
+        })}
+      </ol>
+    </div>
   )
 }

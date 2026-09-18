@@ -59,11 +59,11 @@ def split_counts(total: int, weights: tuple[float, ...]) -> list[int]:
 
 def build_plan(start: date, end: date, weekdays: list[int], minutes: int, level: int) -> list[PlannedSession]:
     days = available_days(start, end, weekdays)
-    if len(days) < MIN_SESSIONS:
-        raise NotEnoughSessions(
-            f"Con esos días hay {len(days)} sesión(es); se necesitan al menos {MIN_SESSIONS}. "
-            "Sumá días o extendé la fecha límite."
-        )
-    counts = split_counts(len(days), WEIGHTS[level])
+    if not days:
+        raise NotEnoughSessions("No hay ningún día disponible entre esas fechas.")
+    # La ruta cubre siempre los tres módulos. Si hay menos días que módulos (por ejemplo,
+    # se estudia para un examen de mañana), varias sesiones caen en el mismo día.
+    total = max(MIN_SESSIONS, len(days))
+    counts = split_counts(total, WEIGHTS[level])
     modules = [m for m, c in zip(MODULES, counts) for _ in range(c)]
-    return [PlannedSession(i + 1, d, m, minutes) for i, (d, m) in enumerate(zip(days, modules))]
+    return [PlannedSession(i + 1, days[i * len(days) // total], m, minutes) for i, m in enumerate(modules)]

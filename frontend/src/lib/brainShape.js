@@ -92,3 +92,50 @@ export function getBrain() {
   cache = { pts: shape.pts, nb, edges }
   return cache
 }
+
+/* ---------- las tres fuentes dispersas: apunte, código y chat ---------- */
+function drawDoc(g) {
+  g.beginPath(); g.moveTo(.2, .08); g.lineTo(.62, .08); g.lineTo(.8, .26); g.lineTo(.8, .92); g.lineTo(.2, .92); g.closePath(); g.fill()
+  g.globalCompositeOperation = 'destination-out'; g.lineCap = 'round'; g.lineWidth = .04
+  g.beginPath(); g.moveTo(.6, .1); g.lineTo(.6, .28); g.lineTo(.78, .28); g.stroke()
+  ;[[.3, .40, .52], [.3, .52, .70], [.3, .64, .70], [.3, .76, .56]].forEach(([a, y, b]) => { g.beginPath(); g.moveTo(a, y); g.lineTo(b, y); g.stroke() })
+}
+function drawCode(g) {
+  g.lineCap = 'round'; g.lineJoin = 'round'; g.lineWidth = .11
+  g.beginPath(); g.moveTo(.32, .26); g.lineTo(.1, .5); g.lineTo(.32, .74); g.stroke()
+  g.beginPath(); g.moveTo(.68, .26); g.lineTo(.9, .5); g.lineTo(.68, .74); g.stroke()
+  g.beginPath(); g.moveTo(.57, .18); g.lineTo(.43, .82); g.stroke()
+}
+function drawChat(g) {
+  g.beginPath(); g.roundRect(.08, .18, .84, .52, .12); g.fill()
+  g.beginPath(); g.moveTo(.26, .66); g.lineTo(.22, .88); g.lineTo(.46, .68); g.fill()
+  g.globalCompositeOperation = 'destination-out'
+  ;[.32, .5, .68].forEach((x) => { g.beginPath(); g.arc(x, .44, .06, 0, 7); g.fill() })
+}
+
+let morphCache = null
+// Para cada partícula del cerebro devuelve su posición de origen dentro de uno de los tres íconos,
+// más las aristas que dibujan cada ícono como red. Se emparejan por posición horizontal para que
+// el viaje de ícono → cerebro sea corto y ordenado.
+export function getMorph() {
+  if (morphCache) return morphCache
+  const brain = getBrain(), N = brain.pts.length, per = Math.floor(N / 3), r = rng(11)
+  const icons = [sample(drawDoc, per, 9, 21, .55), sample(drawCode, per, 8, 22, .55), sample(drawChat, N - 2 * per, 9, 23, .55)]
+  const place = [{ x: .02, y: .10, s: .34, rot: -.12 }, { x: .30, y: .52, s: .36, rot: .05 }, { x: .66, y: .06, s: .34, rot: .1 }]
+  const srcPts = [], srcEdges = []
+  icons.forEach((ic, gi) => {
+    const P = place[gi], c = Math.cos(P.rot), s = Math.sin(P.rot), base = srcPts.length
+    const need = gi < 2 ? per : N - 2 * per, loc = ic.pts
+    while (loc.length < need) loc.push({ ...loc[(r() * loc.length) | 0] })
+    loc.length = need
+    const gg = graph(loc, .07, 3, ic.inside)
+    for (const e of gg.edges) srcEdges.push(e + base)
+    loc.forEach((p) => { const u = p.x - .5, v = p.y - .5; srcPts.push({ x: P.x + P.s * (.5 + u * c - v * s), y: P.y + P.s * (.5 + u * s + v * c) }) })
+  })
+  const bi = brain.pts.map((_, i) => i).sort((a, b) => brain.pts[a].x - brain.pts[b].x)
+  const si = srcPts.map((_, i) => i).sort((a, b) => srcPts[a].x - srcPts[b].x)
+  const source = new Array(N), srcToPart = new Array(N)
+  bi.forEach((b, k) => { source[b] = srcPts[si[k]]; srcToPart[si[k]] = b })
+  morphCache = { source, edges: srcEdges.map((e) => srcToPart[e]) }
+  return morphCache
+}

@@ -64,19 +64,35 @@ Documentación interactiva de la API: http://localhost:8000/docs · Tests: `cd b
 | POST | `/api/plans` | Crea el plan y sus sesiones |
 | GET | `/api/plans` | Planes del usuario |
 | POST | `/api/plans/{id}/materials` | Sube un apunte (pdf, md, txt, docx, py · 10 MB) |
-| GET | `/api/dashboard` | Datos de la pantalla de inicio |
+| GET | `/api/materials` | Material de los planes activos |
+| GET | `/api/dashboard` | Datos de inicio y progreso |
 
-## 5. Configuración del plan (qué se pide y para qué)
+## 5. Pantallas
+
+| Ruta | Pantalla |
+|---|---|
+| `/` | Presentación (hero con el cerebro de partículas) |
+| `/ingresar` | Ingreso con Google (y modo demo en desarrollo) |
+| `/empezar` | Configuración en 3 pasos |
+| `/app` | Inicio: siguiente paso, recorrido y avance |
+| `/app/material` | Mi material |
+| `/app/progreso` | Progreso |
+| `/app/aprender`, `/practicar`, `/consolidar` | Módulos (en construcción) |
+| `/app/configuracion` | Cuenta y apariencia |
+
+La configuración sigue el flujo definido para la plataforma:
 
 | Paso | Datos | Se usa en |
 |---|---|---|
-| Tema | materia, tema, lenguaje, objetivo (examen / aprender) | todos los módulos |
-| Material | apuntes | Material híbrido (pipeline RAG, próximo sprint) |
-| Nivel inicial | autoevaluación 0–3 | reparto de sesiones entre módulos |
-| Disponibilidad | inicio, fecha límite, días, minutos, horario | ruta adaptativa, recordatorios |
-| Preferencias | formato de Aprender, intensidad de pistas | Aprender, detector de Practicar |
+| 1. Configurar objetivo | tema, días disponibles, minutos por sesión, nivel inicial (0–3) | ruta adaptativa |
+| 2. Subir material | apuntes (opcional) | material híbrido (pipeline RAG, próximo sprint) |
+| 3. Revisar la ruta | sesiones por semana y por módulo | confirmación antes de crear |
 
-El generador inicial (`backend/app/services/planner.py`) toma los días disponibles y los reparte entre Aprender → Practicar → Consolidar en ese orden, con proporciones según el nivel (quien sabe más recibe menos teoría y más práctica). El recálculo según el avance real queda para un sprint posterior.
+El prototipo trabaja sobre **una única materia de programación**, según el alcance de la Entrega 1: el alumno elige el *tema* dentro de ella, no la materia. Esa materia se define en una sola constante (`MATERIA`, en `frontend/src/lib/format.js`).
+
+El formato de estudio y la intensidad de las pistas no se piden al configurar: se eligen dentro de cada módulo.
+
+El generador inicial (`backend/app/services/planner.py`) toma los días disponibles y los reparte entre Aprender → Practicar → Consolidar en ese orden, con proporciones según el nivel inicial. La ruta cubre siempre los tres módulos: si hay menos días que módulos (por ejemplo, un examen al día siguiente), varias sesiones caen en el mismo día. El recálculo según el avance real queda para un sprint posterior.
 
 ## 6. Próximos pasos
 

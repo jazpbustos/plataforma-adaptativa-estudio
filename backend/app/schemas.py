@@ -22,15 +22,16 @@ class PlanIn(BaseModel):
     subject: str = Field(min_length=2, max_length=120)
     topic: str = Field(min_length=2, max_length=120)
     language: Literal["python"] = "python"
-    goal: Literal["examen", "aprender"]
+    goal: Literal["examen", "aprender"] = "examen"
     start_date: date
     end_date: date
     weekdays: list[int] = Field(min_length=1, max_length=7)
-    minutes_per_session: Literal[25, 45, 60, 90]
-    preferred_time: Literal["manana", "tarde", "noche"]
+    minutes_per_session: Literal[20, 45, 60, 90]
     level: int = Field(ge=0, le=3)
-    learn_format: Literal["resumen", "preguntas", "ejercicio", "variar"]
-    hint_level: Literal["minimas", "normales"]
+    # Preferencias con valor por defecto: se eligen dentro de cada módulo, no al configurar el objetivo.
+    preferred_time: Literal["manana", "tarde", "noche"] = "tarde"
+    learn_format: Literal["resumen", "preguntas", "ejercicio", "variar"] = "variar"
+    hint_level: Literal["minimas", "normales"] = "minimas"
 
     @field_validator("weekdays")
     @classmethod
@@ -46,8 +47,8 @@ class PlanIn(BaseModel):
 
     @model_validator(mode="after")
     def fechas_coherentes(self):
-        if self.end_date <= self.start_date:
-            raise ValueError("La fecha límite tiene que ser posterior al inicio")
+        if self.end_date < self.start_date:
+            raise ValueError("La fecha límite no puede ser anterior al inicio")
         if (self.end_date - self.start_date).days > MAX_DAYS:
             raise ValueError(f"El plan no puede durar más de {MAX_DAYS} días")
         return self

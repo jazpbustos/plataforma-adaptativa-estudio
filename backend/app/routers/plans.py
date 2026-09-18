@@ -90,6 +90,22 @@ async def upload_material(
     return {"id": material.id, "filename": material.filename, "status": material.status}
 
 
+@router.get("/materials")
+def list_materials(user: User = Depends(current_user), db: Session = Depends(get_session)):
+    """Material de todos los planes activos del usuario (pantalla Mi material)."""
+    rows = db.exec(
+        select(Material, StudyPlan)
+        .join(StudyPlan, Material.plan_id == StudyPlan.id)
+        .where(StudyPlan.user_id == user.id, StudyPlan.status == "activo")
+        .order_by(Material.uploaded_at.desc())
+    ).all()
+    return [
+        {"id": m.id, "filename": m.filename, "size_bytes": m.size_bytes, "status": m.status,
+         "uploaded_at": m.uploaded_at, "plan_id": p.id, "topic": p.topic, "subject": p.subject}
+        for m, p in rows
+    ]
+
+
 @router.get("/dashboard")
 def dashboard(user: User = Depends(current_user), db: Session = Depends(get_session)):
     """Todo lo que necesita la pantalla de inicio en una sola llamada."""
@@ -106,6 +122,8 @@ def dashboard(user: User = Depends(current_user), db: Session = Depends(get_sess
         materials = db.exec(select(Material).where(Material.plan_id == p.id)).all()
         items.append({
             "id": p.id, "subject": p.subject, "topic": p.topic, "goal": p.goal, "end_date": p.end_date,
+            "start_date": p.start_date, "level": p.level, "minutes_per_session": p.minutes_per_session,
+            "weekdays": [int(d) for d in p.weekdays.split(",")],
             "mastery": p.mastery, "points": p.points,
             "sessions_total": len(sessions), "sessions_done": done,
             "by_module": {m: {"total": sum(1 for s in sessions if s.module == m),

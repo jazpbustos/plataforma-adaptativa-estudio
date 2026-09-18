@@ -24,7 +24,7 @@ def plan_body(**kw):
     start = date(2026, 9, 21)  # lunes
     body = dict(subject="Algoritmos y Estructuras de Datos I", topic="Recursividad", goal="examen",
                 start_date=str(start), end_date=str(start + timedelta(days=27)), weekdays=[0, 2, 4],
-                minutes_per_session=45, preferred_time="tarde", level=1, learn_format="variar", hint_level="minimas")
+                minutes_per_session=45, level=1)
     body.update(kw)
     return body
 
@@ -41,6 +41,13 @@ def test_plan_respeta_orden_pedagogico():
     orden = [x.module for x in s]
     assert orden == sorted(orden, key=["aprender", "practicar", "consolidar"].index)
     assert all(x.day.weekday() in (0, 2, 4) for x in s)
+
+
+def test_un_solo_dia_cubre_los_tres_modulos():
+    # Examen mañana: la ruta sigue cubriendo los tres módulos, todos el mismo día.
+    s = build_plan(date(2026, 9, 21), date(2026, 9, 21), list(range(7)), 45, 0)
+    assert [x.module for x in s] == ["aprender", "practicar", "consolidar"]
+    assert all(x.day == date(2026, 9, 21) for x in s)
 
 
 def test_pocas_sesiones_falla():
@@ -65,6 +72,8 @@ def test_flujo_completo_demo(client):
     assert up.status_code == 201
     bad = client.post(f"/api/plans/{pid}/materials", files={"file": ("virus.exe", b"x", "application/octet-stream")})
     assert bad.status_code == 415
+    mats = client.get("/api/materials").json()
+    assert mats[0]["filename"] == "apunte.md" and mats[0]["topic"] == "Recursividad"
     dash = client.get("/api/dashboard").json()
     assert dash["plans"][0]["materials"] == 1
     assert dash["plans"][0]["next_session"]["module"] == "aprender"

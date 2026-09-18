@@ -1,10 +1,10 @@
 import { Link } from 'react-router-dom'
 
 // Marcador de posición: el prototipo para la facultad no usa nombre de producto.
-export default function Logo() {
+export default function Logo({ to = '/' }) {
   return (
-    <Link to="/" className="flex items-baseline gap-0.5 text-[1.05rem] font-medium tracking-tight">
-      plataforma<span className="font-mono text-[.8rem] text-violet-strong">/estudio</span>
+    <Link to={to} className="shrink-0 text-[.95rem] font-semibold tracking-[-.03em] sm:text-[1.05rem]">
+      plataforma<span className="accent">/estudio</span>
     </Link>
   )
 }
