@@ -3,8 +3,11 @@
 
 export function rng(seed) { let s = seed; return () => (s = (s * 16807) % 2147483647) / 2147483647 }
 
-const OUT = [[.15,.50],[.09,.38],[.13,.24],[.24,.14],[.38,.09],[.54,.08],[.70,.12],[.83,.21],[.91,.34],[.91,.47],[.86,.55],[.88,.62],[.82,.69],[.71,.71],[.635,.685],[.625,.80],[.575,.86],[.535,.80],[.545,.69],[.44,.67],[.32,.66],[.24,.62],[.20,.56]]
-const GYRI = [
+// Generador con mejor reparto (el de arriba deja los pares (x, y) alineados en rectas).
+function mulberry(a) { return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296 } }
+
+export const OUT = [[.15,.50],[.09,.38],[.13,.24],[.24,.14],[.38,.09],[.54,.08],[.70,.12],[.83,.21],[.91,.34],[.91,.47],[.86,.55],[.88,.62],[.82,.69],[.71,.71],[.635,.685],[.625,.80],[.575,.86],[.535,.80],[.545,.69],[.44,.67],[.32,.66],[.24,.62],[.20,.56]]
+export const GYRI = [
   [[.21,.55],[.32,.50],[.46,.47],[.58,.50],[.66,.47]], [[.52,.09],[.49,.20],[.51,.30],[.47,.40],[.48,.47]],
   [[.43,.10],[.40,.22],[.43,.31],[.39,.44]], [[.61,.11],[.58,.22],[.61,.33],[.57,.46]],
   [[.16,.30],[.25,.26],[.33,.20],[.40,.22]], [[.12,.42],[.22,.40],[.30,.34],[.38,.34]],
@@ -14,7 +17,7 @@ const GYRI = [
   [[.25,.19],[.30,.30],[.24,.36]], [[.67,.18],[.66,.28]],
 ]
 
-function spline(g, P, closed) {
+export function spline(g, P, closed) {
   const n = P.length, at = (i) => closed ? P[(i + n) % n] : P[Math.max(0, Math.min(n - 1, i))]
   g.moveTo(P[0][0], P[0][1])
   for (let i = 0; i < (closed ? n : n - 1); i++) {
@@ -31,9 +34,9 @@ function drawBrain(g) {
 
 // Muestreo por "Poisson disk" sobre la silueta rasterizada: puntos repartidos sin amontonarse,
 // con más densidad en los bordes para que se lea la forma.
-function sample(draw, n, minD, seed, edgeShare) {
+function sample(draw, n, minD, seed, edgeShare, good = false) {
   const S = 600, o = document.createElement('canvas'); o.width = S; o.height = S
-  const g = o.getContext('2d', { willReadFrequently: true }), r = rng(seed)
+  const g = o.getContext('2d', { willReadFrequently: true }), r = good ? mulberry(seed) : rng(seed)
   g.fillStyle = '#000'; g.strokeStyle = '#000'; g.save(); g.scale(S, S); draw(g); g.restore()
   const d = g.getImageData(0, 0, S, S).data
   const inside = (x, y) => x >= 0 && y >= 0 && x < S && y < S && d[((y | 0) * S + (x | 0)) * 4 + 3] >= 128
@@ -93,6 +96,21 @@ export function getBrain() {
   return cache
 }
 
+// Versión densa para el cerebro "vivo" del hero: más puntos y más conexiones.
+let denseCache = null
+export function getDenseBrain() {
+  if (denseCache) return denseCache
+  const shape = sample((g) => { g.beginPath(); spline(g, OUT, true); g.closePath(); g.fill() }, 4200, 2.6, 13, .3, true), r = mulberry(17)
+  shape.pts.forEach((p) => {
+    const dx = (p.x - .5) / .42, dy = (p.y - .45) / .32
+    // profundidad continua (una cúpula con leve ruido): los vecinos quedan juntos también al girar
+    p.z = Math.sqrt(Math.max(.02, 1 - dx * dx - dy * dy)) * .2 + (r() - .5) * .02
+  })
+  const { nb, edges } = graph(shape.pts, .034, 4, null)
+  denseCache = { pts: shape.pts, nb, edges }
+  return denseCache
+}
+
 /* ---------- las tres fuentes dispersas: apunte, código y chat ---------- */
 function drawDoc(g) {
   g.beginPath(); g.moveTo(.2, .08); g.lineTo(.62, .08); g.lineTo(.8, .26); g.lineTo(.8, .92); g.lineTo(.2, .92); g.closePath(); g.fill()
@@ -122,7 +140,7 @@ export function getMorph() {
   const brain = getBrain(), N = brain.pts.length, per = Math.floor(N / 3), r = rng(11)
   const icons = [sample(drawDoc, per, 9, 21, .55), sample(drawCode, per, 8, 22, .55), sample(drawChat, N - 2 * per, 9, 23, .55)]
   const place = [{ x: .02, y: .10, s: .34, rot: -.12 }, { x: .30, y: .52, s: .36, rot: .05 }, { x: .66, y: .06, s: .34, rot: .1 }]
-  const srcPts = [], srcEdges = []
+  const srcPts = [], srcEdges = [], srcG = []
   icons.forEach((ic, gi) => {
     const P = place[gi], c = Math.cos(P.rot), s = Math.sin(P.rot), base = srcPts.length
     const need = gi < 2 ? per : N - 2 * per, loc = ic.pts
@@ -130,12 +148,12 @@ export function getMorph() {
     loc.length = need
     const gg = graph(loc, .07, 3, ic.inside)
     for (const e of gg.edges) srcEdges.push(e + base)
-    loc.forEach((p) => { const u = p.x - .5, v = p.y - .5; srcPts.push({ x: P.x + P.s * (.5 + u * c - v * s), y: P.y + P.s * (.5 + u * s + v * c) }) })
+    loc.forEach((p) => { srcG.push(gi); const u = p.x - .5, v = p.y - .5; srcPts.push({ x: P.x + P.s * (.5 + u * c - v * s), y: P.y + P.s * (.5 + u * s + v * c) }) })
   })
   const bi = brain.pts.map((_, i) => i).sort((a, b) => brain.pts[a].x - brain.pts[b].x)
   const si = srcPts.map((_, i) => i).sort((a, b) => srcPts[a].x - srcPts[b].x)
-  const source = new Array(N), srcToPart = new Array(N)
-  bi.forEach((b, k) => { source[b] = srcPts[si[k]]; srcToPart[si[k]] = b })
-  morphCache = { source, edges: srcEdges.map((e) => srcToPart[e]) }
+  const source = new Array(N), srcToPart = new Array(N), group = new Array(N)
+  bi.forEach((b, k) => { source[b] = srcPts[si[k]]; srcToPart[si[k]] = b; group[b] = srcG[si[k]] })
+  morphCache = { source, group, edges: srcEdges.map((e) => srcToPart[e]) }
   return morphCache
 }

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { getBrain, getMorph, rng } from '../lib/brainShape.js'
+import { getBrain, getMorph, rng, OUT, GYRI, spline } from '../lib/brainShape.js'
 
 /*
   Firma visual: cerebro de red neuronal hecho de partículas (Canvas 2D, sin librerías 3D).
@@ -15,10 +15,10 @@ const rgba = (c, a) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`
 const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v))
 const ease = (t) => (t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
 
-const T1 = 3.2, T2 = 2.8, T3 = 9, T4 = 2.8, LOOP = T1 + T2 + T3 + T4
+const T1 = 4.6, T2 = 2.8, T3 = 9, T4 = 2.8, LOOP = T1 + T2 + T3 + T4
 export const PHASES = { sources: 'apunte.pdf · ejercicio.py · chat con IA', linking: 'conectando…', brain: 'conocimiento conectado' }
 
-export default function NeuralBrain({ className = '', intensity = 1, morph = false, onPhase }) {
+export default function NeuralBrain({ className = '', intensity = 1, morph = false, ink = false, wide = false, onPhase }) {
   const ref = useRef(null)
   const phaseRef = useRef(onPhase)
   phaseRef.current = onPhase
@@ -38,17 +38,21 @@ export default function NeuralBrain({ className = '', intensity = 1, morph = fal
     let lastPhase = ''
     const setPhase = (p) => { if (p !== lastPhase) { lastPhase = p; phaseRef.current?.(p) } }
 
-    let C = {}, W = 0, H = 0, SC = 0, OX = 0, OY = 0, raf = 0, yaw = 0, syn = []
+    let C = {}, W = 0, H = 0, SC = 0, OX = 0, OY = 0, BSC = 0, BOX = 0, BOY = 0, DX = [0, 0, 0], raf = 0, yaw = 0, syn = []
     const mouse = { x: -1e4, y: -1e4, nx: 0 }, start = performance.now()
 
     function readColors() {
       const css = (n) => getComputedStyle(root).getPropertyValue(n)
       C = { p1: hex(css('--p1')), p2: hex(css('--p2')), p3: hex(css('--p3')), pulse: css('--pulse').trim(),
         dark: getComputedStyle(root).colorScheme === 'dark' }
-      parts.forEach((p) => {
+      C.g = [hex(css('--blue')), hex(css('--green')), hex(css('--pink'))]
+      C.ink = C.dark ? [216, 208, 255] : [44, 38, 72]
+      parts.forEach((p, pi) => {
+        if (ink) { p.col = p.hub ? mix(C.ink, C.p1, .85) : mix(C.ink, C.p1, clamp(p.b.x * .35)); return }
         const t = clamp(p.b.x * 1.15 - .08)
         const c = t < .5 ? mix(C.p3, C.p1, t * 2) : mix(C.p1, C.p2, (t - .5) * 2)
         p.col = mix(c, C.p1, Math.max(0, .35 - p.b.y))
+        if (wide && mo_) { p.g = mo_.group[pi]; p.src = C.g[p.g] }
       })
     }
     function layout() {
@@ -56,6 +60,19 @@ export default function NeuralBrain({ className = '', intensity = 1, morph = fal
       W = canvas.clientWidth; H = canvas.clientHeight
       canvas.width = W * dpr; canvas.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
       SC = Math.min(W * .95, H * 1.15); OX = (W - SC) / 2; OY = (H - SC * .86) / 2 - SC * .03
+      BSC = SC; BOX = OX; BOY = OY; DX = [0, 0, 0]
+      if (wide) {
+        const big = W >= 820
+        if (big) {
+          // cerebro a la derecha; las tres fuentes se reparten a la izquierda
+          BSC = Math.min(H * 1.12, W * .44); BOX = W * .73 - BSC / 2; BOY = (H - BSC * .86) / 2 - BSC * .03
+          SC = Math.min(H * .9, W * .4, BSC * 1.05); OX = W * .04; OY = (H - SC * .95) / 2 + SC * .0
+          DX = [.19, .5, .83].map((u) => u * (W >= 1100 ? .45 : .25))
+        } else { SC = Math.min(W * .95, H * 1.0); OX = (W - SC) / 2; OY = (H - SC * 1.05) / 2 + SC * .09 }
+        const st = canvas.parentElement.style
+        st.setProperty('--ox', OX + 'px'); st.setProperty('--oy', OY + 'px'); st.setProperty('--sc', SC + 'px')
+        DX.forEach((d, i) => st.setProperty('--dx' + i, d))
+      }
     }
 
     function frame(now) {
@@ -77,8 +94,8 @@ export default function NeuralBrain({ className = '', intensity = 1, morph = fal
         const k = ease(clamp((m * 1.5 - p.delay) / 1)); p.k = k
         const bx = .5 + (p.b.x - .5) * cy + p.b.z * sy
         p.d = 1 + (-(p.b.x - .5) * sy + p.b.z * cy) * .8
-        const tx = OX + bx * SC, ty = OY + p.b.y * SC
-        const sx = OX + p.sx * SC + (morph ? Math.sin(t * .7 + p.ph) * 2.5 : 0)
+        const tx = BOX + bx * BSC, ty = BOY + p.b.y * BSC
+        const sx = OX + (p.sx + (wide ? DX[p.g] : 0)) * SC + (morph ? Math.sin(t * .7 + p.ph) * 2.5 : 0)
         const sy2 = OY + p.sy * SC + (morph ? Math.cos(t * .6 + p.ph) * 2.5 : 0)
         const arc = morph ? Math.sin(k * Math.PI) * (24 + p.ph * 5) : 0
         let x = sx + (tx - sx) * k + Math.cos(p.ph) * arc * .4 + Math.sin(t * .8 + p.ph) * .9
@@ -92,12 +109,18 @@ export default function NeuralBrain({ className = '', intensity = 1, morph = fal
       // red de cada ícono mientras están separados
       const sA = morph ? clamp((.25 - m) / .25) : 0
       if (sA > 0) {
-        ctx.lineWidth = .6; ctx.strokeStyle = rgba(C.p1, base * sA); ctx.beginPath()
-        for (let k = 0; k < mo_.edges.length; k += 2) { const a = parts[mo_.edges[k]], b = parts[mo_.edges[k + 1]]; ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y) }
-        ctx.stroke()
+        ctx.lineWidth = wide ? .8 : .6
+        for (let g = 0; g < (wide ? 3 : 1); g++) {
+          ctx.strokeStyle = rgba(wide ? C.g[g] : ink ? C.ink : C.p1, base * sA * (wide ? 1.1 : ink ? .9 : 1)); ctx.beginPath()
+          for (let k = 0; k < mo_.edges.length; k += 2) {
+            if (wide && mo_.group[mo_.edges[k]] !== g) continue
+            const a = parts[mo_.edges[k]], b = parts[mo_.edges[k + 1]]; ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y)
+          }
+          ctx.stroke()
+        }
       }
       const eA = base * (morph ? clamp((m - .72) / .28) : clamp((m - .55) / .45))
-      if (eA > 0) {
+      if (eA > 0 && !ink) {
         ctx.lineWidth = .6
         for (const front of [false, true]) {
           ctx.strokeStyle = rgba(C.p1, eA * (front ? 1 : .55)); ctx.beginPath()
@@ -109,18 +132,56 @@ export default function NeuralBrain({ className = '', intensity = 1, morph = fal
           ctx.stroke()
         }
       }
+      if (ink) {
+        const a = morph ? clamp((m - .8) / .2) : clamp((m - .7) / .3)
+        if (a > 0) {
+          const tp = (u, v, i) => [OX + (.5 + (u - .5) * cy) * SC + Math.sin(u * 61 + v * 37 + i) * SC * .0028, OY + v * SC + Math.cos(u * 43 - v * 59 + i) * SC * .0028]
+          ctx.lineCap = 'round'; ctx.lineJoin = 'round'
+          for (const [dx, dy, al, lw] of [[0, 0, .62, 1.25], [.9, -.7, .28, .8]]) {
+            ctx.strokeStyle = rgba(C.ink, a * al * intensity); ctx.lineWidth = lw
+            ctx.save(); ctx.translate(dx, dy)
+            ctx.beginPath(); spline(ctx, OUT.map(([u, v], i) => tp(u, v, i)), true); ctx.closePath(); ctx.stroke()
+            ctx.strokeStyle = rgba(C.ink, a * al * .8 * intensity)
+            ctx.beginPath(); for (const g of GYRI) spline(ctx, g.map(([u, v], i) => tp(u, v, i + 3)), false); ctx.stroke()
+            ctx.restore()
+          }
+        }
+      }
       for (const p of parts) {
-        const rr = p.rad * (1 + (p.d - 1) * p.k) * (p.hub ? 1.5 : 1) * Math.max(.8, SC / 520)
+        const rr = p.rad * (1 + (p.d - 1) * p.k) * (p.hub ? 1.5 : 1) * Math.max(.8, BSC / 520) * (wide ? 1.15 : 1) * (ink ? .9 : 1)
         ctx.globalAlpha = clamp(.45 + .55 * (p.k ? p.d - .2 : 1)) * intensity
-        if (p.hub) { ctx.fillStyle = rgba(p.col, .12); ctx.beginPath(); ctx.arc(p.x, p.y, rr * 3.2, 0, 7); ctx.fill() }
-        ctx.fillStyle = rgba(p.col, 1); ctx.beginPath(); ctx.arc(p.x, p.y, rr, 0, 7); ctx.fill()
+        if (p.hub && !ink) { ctx.fillStyle = rgba(p.col, .12); ctx.beginPath(); ctx.arc(p.x, p.y, rr * 3.2, 0, 7); ctx.fill() }
+        ctx.fillStyle = rgba(wide && p.src ? mix(p.src, p.col, clamp(p.k * 1.6)) : p.col, 1); ctx.beginPath(); ctx.arc(p.x, p.y, rr, 0, 7); ctx.fill()
       }
       ctx.globalAlpha = 1
       // el cursor también es una neurona
-      if (near.length) {
+      if (near.length && !ink) {
         near.sort((a, b) => a[0] - b[0]); ctx.lineWidth = .7
         for (const [dm, x, y] of near.slice(0, 7)) { ctx.strokeStyle = rgba(C.p2, (1 - dm / 80) * .7); ctx.beginPath(); ctx.moveTo(mouse.x, mouse.y); ctx.lineTo(x, y); ctx.stroke() }
         ctx.fillStyle = rgba(C.p2, .9); ctx.beginPath(); ctx.arc(mouse.x, mouse.y, 2.2, 0, 7); ctx.fill()
+      }
+      // hilos de las tres fuentes hacia el cerebro (solo en formato ancho)
+      if (wide && m > .8) {
+        const sA2 = clamp((m - .8) / .2), tg = [BOX + BSC * .16, BOY + BSC * .45]
+        const cen = [[.19, .27], [.5, .70], [.83, .23]]
+        ctx.lineCap = 'round'
+        cen.forEach(([u, v], g) => {
+          const x0 = OX + (u + DX[g]) * SC, y0 = OY + v * SC
+          for (let s = -1; s <= 1; s++) {
+            const ty2 = tg[1] + s * BSC * .07 + (g - 1) * BSC * .05
+            const c1 = [x0 + (tg[0] - x0) * .45, y0], c2 = [x0 + (tg[0] - x0) * .55, ty2]
+            const pt = (q) => { const a = 1 - q; return [a * a * a * x0 + 3 * a * a * q * c1[0] + 3 * a * q * q * c2[0] + q * q * q * tg[0], a * a * a * y0 + 3 * a * a * q * c1[1] + 3 * a * q * q * c2[1] + q * q * q * ty2] }
+            ctx.strokeStyle = rgba(C.g[g], .2 * sA2); ctx.lineWidth = .8; ctx.beginPath()
+            for (let i = 0; i <= 28; i++) { const [px, py] = pt(i / 28); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py) }
+            ctx.stroke()
+            for (let i = 0; i < 7; i++) {
+              const q = ((t * .09 + i / 7 + s * .13 + g * .31) % 1 + 1) % 1, [px, py] = pt(q)
+              ctx.globalAlpha = Math.sin(q * Math.PI) * .9 * sA2; ctx.fillStyle = rgba(C.g[g], 1)
+              ctx.beginPath(); ctx.arc(px, py, 1.5, 0, 7); ctx.fill()
+            }
+          }
+        })
+        ctx.globalAlpha = 1
       }
       // sinapsis: señales que recorren la red
       if (!reduce && m < .9) syn = []
@@ -165,7 +226,7 @@ export default function NeuralBrain({ className = '', intensity = 1, morph = fal
       cancelAnimationFrame(raf); ro.disconnect(); mo.disconnect(); mq.removeEventListener('change', redraw)
       canvas.removeEventListener('pointermove', onMove); canvas.removeEventListener('pointerleave', onLeave)
     }
-  }, [intensity, morph])
+  }, [intensity, morph, ink, wide])
 
   return <canvas ref={ref} aria-hidden="true" className={`block h-full w-full ${className}`} />
 }

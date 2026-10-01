@@ -10,11 +10,13 @@ const PARTS = [
   { text: 'Esta plataforma se anticipa y reúne todo el proceso en un mismo lugar.', accent: true },
 ]
 
-export default function Statement() {
+export default function Statement({ progress }) {
   const ref = useRef(null)
-  const [p, setP] = useState(0)
+  const [pl, setP] = useState(0)
+  const p = progress ?? pl // si viene 'progress' (la hoja que gira), manda ese; si no, el scroll propio
 
   useEffect(() => {
+    if (progress !== undefined) return
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
     if (reduce) { setP(1); return }
     let raf = 0
@@ -28,7 +30,7 @@ export default function Statement() {
     update()
     addEventListener('scroll', onScroll, { passive: true }); addEventListener('resize', onScroll)
     return () => { removeEventListener('scroll', onScroll); removeEventListener('resize', onScroll); cancelAnimationFrame(raf) }
-  }, [])
+  }, [progress])
 
   const words = PARTS.flatMap((part) => part.text.split(' ').map((w) => ({ w, accent: part.accent })))
   const lit = p * words.length

@@ -1,133 +1,342 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { MODULES } from '../lib/format.js'
+import { Kicker, Floaty, BulbDoodle, CodeDoodle, BrainDoodle, FootDoodle, MedalDoodle, FlagDoodle } from './Doodles.jsx'
 
 /*
-  "Tu ruta": tarjetas medianas (ícono, paso y título) que se apilan al scrollear.
-  Las de abajo se achican y se apagan apenas; a la izquierda el dominio sube a medida que se juntan.
+  "Tu ruta": un libro que se abre solo al scrollear. Cada hoja doble explica una etapa (a la izquierda qué se hace y para qué,
+  a la derecha los pasos concretos que se van tildando). Al terminar la etapa la hoja se da vuelta, el marcapáginas cambia de color
+  y un semicírculo del color de la etapa sube y cambia el fondo. El dominio sube arriba hasta 100 %.
   Solo incluye pasos que el prototipo plantea.
 */
-/* Íconos de línea (24px) para cada paso */
-const I = (props) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="size-[22px]" aria-hidden="true" {...props} />
-const IcoDiagnostico = () => <I><path d="M4 16a8 8 0 1116 0" /><path d="M12 16l4-5" /><circle cx="12" cy="16" r="1.2" fill="currentColor" /></I>
-const IcoResumen = () => <I><path d="M12 6.5C10 5 7 4.5 4 5v13c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5V5c-3-.5-6 0-8 1.5z" /><path d="M12 6.5v13" /></I>
-const IcoPreguntas = () => <I><path d="M20 12a8 8 0 01-11.6 7.1L4 20l1-4A8 8 0 1120 12z" /><path d="M10 10a2 2 0 113 1.7c-.6.4-1 .8-1 1.5M12 15.5h.01" /></I>
-const IcoEjercicio = () => <I><path d="M14.5 4.5l5 5L9 20H4v-5z" /><path d="M12.5 6.5l5 5" /></I>
-const IcoEditor = () => <I><rect x="3" y="4.5" width="18" height="15" rx="2.5" /><path d="M8 10l-2 2 2 2M16 10l2 2-2 2M13 9l-2 6" /></I>
-const IcoPista = () => <I><path d="M9 18h6M10 21h4" /><path d="M12 3a6 6 0 00-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0012 3z" /></I>
-const IcoAlumna = () => <I><path d="M2.5 9L12 4.5 21.5 9 12 13.5z" /><path d="M6.5 11v4.5c1.5 1.5 3.5 2.2 5.5 2.2s4-.7 5.5-2.2V11M21.5 9v5" /></I>
-const IcoRevision = () => <I><circle cx="12" cy="12" r="8.5" /><path d="M8.5 12.2l2.4 2.4 4.8-5" /></I>
-const IcoMejora = () => <I><path d="M4 17l5-5 3.5 3.5L20 8" /><path d="M15 8h5v5" /></I>
-const IcoDominio = () => <I><path d="M12 3l2.3 4.8 5.2.7-3.8 3.6.9 5.2L12 14.9l-4.6 2.4.9-5.2-3.8-3.6 5.2-.7z" /></I>
-
-const V = 'var(--violet)'
+const V = 'var(--p1)'
 const STEPS = [
-  { group: 'Punto de partida', color: V, title: 'Nivel inicial', text: 'Indicás cuánto sabés del tema para adaptar la ruta.', Icon: IcoDiagnostico },
-  { group: MODULES.aprender, title: 'Resumen del tema', text: 'Las ideas clave, generadas a partir del material del tema.', Icon: IcoResumen },
-  { group: MODULES.aprender, title: 'Preguntas guiadas', text: 'Llegás a cada concepto razonando paso a paso.', Icon: IcoPreguntas },
-  { group: MODULES.aprender, title: 'Ejercicio guiado', text: 'Un caso concreto para aplicar lo que viste.', Icon: IcoEjercicio },
-  { group: MODULES.practicar, title: 'Práctica en el editor', text: 'Ejercicios de código que se ejecutan y se validan automáticamente.', Icon: IcoEditor },
-  { group: MODULES.practicar, title: 'Ayuda ante bloqueos', text: 'Si se detecta un bloqueo, recibís retroalimentación sin tener que pedirla.', Icon: IcoPista },
-  { group: MODULES.consolidar, title: 'Explicación del tema', text: 'Lo explicás con tus palabras y respondés preguntas de seguimiento.', Icon: IcoAlumna },
-  { group: MODULES.consolidar, title: 'Revisión de la explicación', text: 'Se verifica que lo que explicaste sea correcto.', Icon: IcoRevision },
+  { setup: true, group: { label: 'Configurar', color: V }, title: 'Elegí tu tema', note: '', text: 'Indicás qué querés preparar dentro de la materia.' },
+  { setup: true, group: { label: 'Configurar', color: V }, title: 'Días y tiempo disponible', note: '', text: 'Definís en cuántos días lo querés estudiar y cuánto tiempo tenés por día.' },
+  { setup: true, group: { label: 'Configurar', color: V }, title: 'Cuánto sabés del tema', note: '', text: 'Tu nivel inicial, para que la ruta parta de donde estás.' },
+  { setup: true, group: { label: 'Configurar', color: V }, title: 'Subí tu material', note: '', text: 'Es opcional: tus apuntes se combinan con fuentes académicas indexadas.' },
+  { group: MODULES.aprender, title: 'Resumen del tema', note: 'lo importante, sin vueltas', text: 'Las ideas clave, generadas a partir del material del tema.' },
+  { group: MODULES.aprender, title: 'Preguntas guiadas', note: 'pensás vos, te guiamos', text: 'Llegás a cada concepto razonando paso a paso.' },
+  { group: MODULES.aprender, title: 'Ejercicio guiado', note: 'un caso concreto', text: 'Un caso concreto para aplicar lo que viste.' },
+  { group: MODULES.practicar, title: 'Práctica en el editor', note: 'a escribir código', text: 'Ejercicios de código que se ejecutan y se validan automáticamente.' },
+  { group: MODULES.practicar, title: 'Ayuda ante bloqueos', note: '¿trabado? te ayudamos', text: 'Si se detecta un bloqueo, recibís retroalimentación sin tener que pedirla.' },
+  { group: MODULES.consolidar, title: 'Explicación del tema', note: 'ahora enseñás vos', text: 'Lo explicás con tus palabras y respondés preguntas de seguimiento.' },
+  { group: MODULES.consolidar, title: 'Revisión de la explicación', note: 'chequeamos que esté bien', text: 'Se verifica que lo que explicaste sea correcto.' },
 ]
+const DOODLE = { Configurar: FootDoodle, Aprender: BulbDoodle, Practicar: CodeDoodle, Consolidar: BrainDoodle }
 
-export default function RutaDominio({ header }) {
-  const cards = useRef([])
-  const [done, setDone] = useState(0)
+const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v))
+const smooth = (t) => t * t * (3 - 2 * t)
+const LILA = '#E8E1F4'
+const CL = 1.2            // tramo final: el libro se cierra y aparece el sello de 100 %
+const OP0 = 1.4          // acá empieza a abrirse la portada
+const INTRO = 1.8          // tramo de entrada (en "hojas"): sube el semicírculo lila, se arma el título y pasa al anotador
+// color de fondo de cada etapa
+const TINT = (c) => `color-mix(in srgb, ${c} 17%, #fbf9f6)`
+const TITLE = [{ w: 'Paso' }, { w: 'a' }, { w: 'paso,' }, { w: 'hasta', a: 1 }, { w: 'dominar', a: 1 }, { w: 'el', a: 1 }, { w: 'tema.', a: 1 }]
+const PARA = 'Cada tema se recorre en el mismo orden. Cada paso completado suma a tu nivel de dominio.'
+
+// qué se hace en cada etapa (hoja izquierda del libro)
+const INFO = {
+  Configurar: { title: 'Antes de empezar,', accent: 'armá tu ruta.', desc: 'Contás qué querés preparar, cuándo necesitás llegar y cuánto sabés. Si querés, sumás tus apuntes. Con eso se organiza una ruta posible para vos.' },
+  Aprender: { title: MODULES.aprender.verb.split(', ')[0] + ',', accent: MODULES.aprender.verb.split(', ')[1], desc: 'Entendés el tema con un resumen del material y preguntas que te guían para que lo razones vos, no que lo memorices.' },
+  Practicar: { title: MODULES.practicar.verb.split(', ')[0] + ',', accent: MODULES.practicar.verb.split(', ')[1], desc: 'Escribís código en el editor, se ejecuta y se valida solo. Si te trabás, te llega ayuda sin tener que pedirla.' },
+  Consolidar: { title: MODULES.consolidar.verb.split(', ')[0] + ',', accent: MODULES.consolidar.verb.split(', ')[1], desc: 'Le explicás el tema a un agente que aprende de vos. Así se ve qué entendiste bien y qué te falta reforzar.' },
+}
+
+/* tapa del cuaderno: papel con borde de tinta, cinta y etiqueta a mano (la de adelante y la de atrás, ya corregida con 100 %) */
+function Cover({ done }) {
+  const spark = [
+    { top: -14, left: -10, '--r': '-14deg', '--s': '46px' },
+    { top: 46, right: -12, '--r': '12deg', '--s': '36px' },
+    { bottom: 96, left: -14, '--r': '10deg', '--s': '34px' },
+    { bottom: -12, right: 26, '--r': '-8deg', '--s': '42px' },
+  ]
+  return (
+    <div className="rl-cv">
+      <i className="rl-tail" aria-hidden="true" />
+      <div className="rl-label">
+        {done ? <>tema dominado</> : <>tu ruta<small>paso a paso</small></>}
+      </div>
+      {done && (
+        <>
+          <div className="rl-mark" style={{ opacity: 0 }}>
+            <svg viewBox="0 0 230 120" aria-hidden="true"><path className="rl-circ" pathLength="1" d="M38 64C30 30 84 12 124 14c54 2 94 22 90 50-4 30-60 44-106 40C60 100 18 86 26 54c4-18 34-32 70-38" /></svg>
+            <b>100<small>%</small></b>
+          </div>
+          <p className="rl-pop rl-wow">¡lo lograste!</p>
+          {spark.map((p, i) => (
+            <svg key={i} className="rl-pop rl-spark" viewBox="0 0 24 24" style={p} aria-hidden="true"><path d="M12 2l2.4 7.6L22 12l-7.6 2.4L12 22l-2.4-7.6L2 12l7.6-2.4z" /></svg>
+          ))}
+        </>
+      )}
+    </div>
+  )
+}
+
+function MiniBook() {
+  const ink = 'var(--ink-hand, #3a2a7a)'
+  return (
+    <span aria-hidden="true" className="lg-book nb-float" style={{ '--r': '-2deg' }}>
+      <svg viewBox="0 0 160 126" fill="none" stroke={ink} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M6 34v62c26-5 52-4 74 6 22-10 48-11 74-6V34" strokeWidth="2.6" />
+        <path d="M80 32C60 20 32 20 12 27v62c24-5 50-4 68 5z" fill="var(--doodle-fill)" />
+        <path d="M80 32c20-12 48-12 68-5v62c-24-5-50-4-68 5z" fill="var(--doodle-fill)" />
+        <path d="M80 32v62" strokeWidth="2.4" />
+        <path d="M24 46c12-3 26-2 42 3M24 58c12-3 26-2 42 3M24 70c10-2 20-2 30 1" strokeWidth="2.2" />
+        <path d="M94 49c16-5 30-6 42-3M94 61c16-5 30-6 42-3M94 73c10-3 20-3 30-1" strokeWidth="2.2" />
+        <g className="lg-ribbon"><path d="M73 58h14l1 62-8-8-8 8z" fill="#a58bff" /><path d="M80 64v40" strokeWidth="1.8" opacity=".5" /></g>
+      </svg>
+    </span>
+  )
+}
+
+export default function RutaDominio() {
+  const wrap = useRef(null), leaves = useRef([]), bgs = useRef([]), rows = useRef([]), ribbon = useRef(null)
+  const book = useRef(null), cover = useRef(null), marks = useRef([]), circs = useRef([]), pops = useRef([]), hdr = useRef(null), kick = useRef(null), para = useRef(null), letters = useRef([]), board = useRef(null), mini = useRef(null)
+  const [reduce] = useState(() => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches)
+  const [done, setDone] = useState(reduce ? STEPS.filter((s) => !s.setup).length : 0)
+
+  // agrupa pasos consecutivos de la misma etapa (cada grupo = una hoja)
+  const groups = useMemo(() => {
+    const out = []
+    STEPS.forEach((s, i) => {
+      const gr = s.group
+      const last = out[out.length - 1]
+      if (last && last.label === gr.label) last.items.push([s, i])
+      else out.push({ label: gr.label, color: gr.color, items: [[s, i]] })
+    })
+    return out
+  }, [])
+  const G = groups.length
 
   useEffect(() => {
-    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (reduce) { rows.current.forEach((el) => el && (el.dataset.on = '1')); return }
     let raf = 0
+    const N = letters.current.length
+    marks.current = [...(book.current?.querySelectorAll('.rl-mark') || [])]
+    circs.current = [...(book.current?.querySelectorAll('.rl-circ') || [])]
+    pops.current = [...(book.current?.querySelectorAll('.rl-pop') || [])]
+    const narrow = () => innerWidth < 760
     const update = () => {
       raf = 0
-      const els = cards.current.filter(Boolean)
-      const tops = els.map((el) => parseFloat(getComputedStyle(el).top) || 0)
-      const rects = els.map((el) => el.getBoundingClientRect())
-      let stuck = 0
-      els.forEach((el, i) => {
-        if (rects[i].top <= tops[i] + 2) stuck = i + 1
-        let k = 0 // cuántas tarjetas ya se apoyaron encima (continuo)
-        for (let j = i + 1; j < els.length; j++) {
-          const h = rects[j].height || 1
-          k += Math.min(1, Math.max(0, (tops[j] + h - rects[j].top) / h))
-        }
-        const inner = el.firstElementChild
-        if (!inner || reduce) return
-        inner.style.transform = `scale(${Math.max(.94, 1 - k * .012)})`
-        // opacas: la de abajo no se transparenta (se leería el texto); en oscuro se apaga apenas
-        inner.style.filter = document.documentElement.dataset.theme === 'dark' ? `brightness(${Math.max(.7, 1 - k * .08)})` : ''
+      const r = wrap.current.getBoundingClientRect(), total = Math.max(1, wrap.current.offsetHeight - innerHeight)
+      const u = clamp(-r.top / total) * (INTRO + G + CL), g = clamp(u - INTRO, 0, G + CL)
+      const CS = G - 1 + .88   // acá empieza el cierre
+
+      // 1) entrada: semicírculo lila que sube, título que se arma letra por letra, y después el título se va
+      const circ = smooth(clamp(u / .6)), hp = clamp((u - .38) / .7), hx = smooth(clamp((u - .9) / .3))
+      const maxR = Math.hypot(innerWidth / 2, innerHeight) + 24
+      if (bgs.current[0]) bgs.current[0].style.clipPath = `circle(${(circ * maxR).toFixed(1)}px at 50% 100%)`
+      letters.current.forEach((el, k) => {
+        if (!el) return
+        const e = smooth(clamp(hp * 1.9 - (k / N) * .9))
+        el.style.transform = `translateY(${((1 - e) * 112).toFixed(1)}%) rotate(${((1 - e) * 9).toFixed(1)}deg)`
       })
-      setDone(stuck)
+      if (kick.current) { const e = smooth(clamp(hp * 3)); kick.current.style.opacity = String(e); kick.current.style.transform = `translateY(${((1 - e) * 14).toFixed(1)}px)` }
+      if (para.current) { const e = smooth(clamp((hp - .62) / .38)); para.current.style.opacity = String(e); para.current.style.transform = `translateY(${((1 - e) * 16).toFixed(1)}px)` }
+      if (mini.current) mini.current.style.transform = `scale(${(1 + hx * 2.2).toFixed(3)})`
+      if (hdr.current) {
+        hdr.current.style.opacity = String(1 - hx); hdr.current.style.transform = `translateY(${(-hx * 80).toFixed(1)}px)`
+        hdr.current.style.visibility = hx >= 1 ? 'hidden' : ''
+      }
+      // el libro entra: crece desde el librito del título y se abre
+      if (board.current) {
+        const sx = smooth(clamp((u - 1.05) / .3))
+        board.current.style.opacity = String(sx)
+        board.current.style.transform = sx >= 1 ? '' : `perspective(1400px) rotateX(${((1 - sx) * 26).toFixed(1)}deg) scale(${(.62 + .38 * sx).toFixed(3)}) translateY(${((1 - sx) * 40).toFixed(1)}px)`
+        board.current.style.visibility = sx <= 0 ? 'hidden' : ''
+      }
+
+      // 2) libro: cada hoja gira sobre el lomo (la derecha pasa a ser la izquierda de la etapa siguiente)
+      const turnOf = (i) => (i === G - 1 ? clamp((g - CS) / .35) : clamp((g - (i + .8)) / .2))
+      const op = smooth(clamp((u - OP0) / .4))
+      const tOf = (i) => (i === 0 ? clamp((u - OP0) / .4) : turnOf(i - 1))   // la hoja 0 es la portada
+      leaves.current.forEach((el, i) => {
+        if (!el) return
+        const t = tOf(i), e = smooth(t)
+        el.dataset.turning = t > .004 && t < .996 ? '1' : '0'
+        if (narrow()) { el.style.transform = t ? `rotateY(${(-e * 70).toFixed(1)}deg)` : ''; el.style.opacity = String(1 - e) }
+        else el.style.transform = t ? `rotateY(${(-e * 180).toFixed(1)}deg)` : ''
+        el.style.zIndex = String(e > .5 ? 10 + i : 100 - i)
+      })
+      if (ribbon.current) { ribbon.current.style.setProperty('--rc', groups[Math.min(G - 1, Math.floor(g + .1))].color); ribbon.current.style.opacity = String(clamp((u - OP0 - .3) / .1) * (1 - smooth(clamp((g - CS) / .15)))) }
+      // cierre: el libro queda de un solo lado, se corre al centro y le estampan el sello
+      const sh = smooth(clamp((g - (CS + .3)) / .35)), sealT = clamp((g - (CS + .6)) / .35), tl = smooth(clamp((g - CS) / .35))
+      if (book.current) {
+        // cerrado al principio (portada a la derecha, centrada) y cerrado al final (tapa a la izquierda, centrada)
+        book.current.style.transform = narrow() ? '' : `translateX(${((sh - (1 - op)) * book.current.offsetWidth * .25).toFixed(1)}px)`
+        book.current.style.setProperty('--shr', String(1 - tl)); book.current.style.setProperty('--shl', String(clamp((op - .55) * 2.2) * (1 - tl)))
+      }
+      if (cover.current) cover.current.style.opacity = narrow() ? String(tl) : ''
+      marks.current.forEach((el) => { el.style.opacity = String(smooth(clamp(sealT * 3))) })
+      // estrellitas y "¡lo lograste!" saltan una tras otra (con rebote)
+      pops.current.forEach((el, k) => {
+        const s = clamp((sealT - .3 - k * .06) / .3), e = s >= 1 ? 1 : 1 + 2.70158 * (s - 1) ** 3 + 1.70158 * (s - 1) ** 2
+        el.style.scale = s > 0 ? e.toFixed(3) : '0'
+        el.style.opacity = s > 0 ? '1' : '0'
+      })
+      circs.current.forEach((el) => { el.style.strokeDashoffset = String(1 - smooth(clamp((sealT - .15) / .7))) })
+
+      // 3) semicírculo de color de cada etapa: sube mientras se da vuelta la hoja anterior
+      bgs.current.forEach((el, j) => {
+        if (!el || j === 0) return
+        if (j === G) { el.style.clipPath = `circle(${(smooth(clamp((g - (CS + .1)) / .45)) * maxR).toFixed(1)}px at 50% 100%)`; return }
+        const t = smooth(clamp((g - (j - 1 + .72)) / .28))
+        el.style.clipPath = `circle(${(t * maxR).toFixed(1)}px at 50% 100%)`
+      })
+
+      // 4) tildes: cada paso se marca cuando le toca dentro de su hoja
+      let n = 0
+      groups.forEach((gr, gi) => gr.items.forEach(([st, idx], k) => {
+        const on = g >= gi + ((k + .4) / (gr.items.length + .6)) * .78 && u > INTRO
+        const el = rows.current[idx]
+        if (el) el.dataset.on = on ? '1' : '0'
+        if (on && !st.setup) n++
+      }))
+      setDone((d) => (d === n ? d : n))
     }
     const onScroll = () => { if (!raf) raf = requestAnimationFrame(update) }
     update()
     addEventListener('scroll', onScroll, { passive: true }); addEventListener('resize', onScroll)
     return () => { removeEventListener('scroll', onScroll); removeEventListener('resize', onScroll); cancelAnimationFrame(raf) }
-  }, [])
+  }, [reduce, G, groups])
 
-  const total = STEPS.length
+  // el librito invita: al tocarlo baja solo hasta el libro abierto
+  const goBoard = () => {
+    const w = wrap.current
+    if (!w) return
+    const tot = Math.max(1, w.offsetHeight - innerHeight)
+    const y = w.getBoundingClientRect().top + scrollY + tot * ((INTRO + .04) / (INTRO + G + CL))
+    if (scrollY < y) scrollTo({ top: y, behavior: 'smooth' })
+  }
+
+  const total = STEPS.filter((s) => !s.setup).length
   const pct = Math.round((Math.min(done, total) / total) * 100)
-  const cur = STEPS[Math.min(total - 1, Math.max(0, done - 1))]
-  const curColor = cur.group.color ?? cur.color
 
-  return (
-    <div className="grid grid-cols-1 gap-12 lg:grid-cols-[minmax(0,.9fr)_minmax(0,1.1fr)] lg:gap-20">
-      {/* panel fijo: título + dominio que sube */}
-      <div className="grid content-start gap-10 lg:sticky lg:top-28 lg:self-start">
-        {header}
-        <div className="grid max-w-[340px] gap-3">
-          <div className="flex items-baseline justify-between">
-            <span className="label">Dominio del tema</span>
-            <span className="text-[2.4rem] leading-none font-light tracking-[-.04em] tabular-nums">{pct}<span className="ml-1 text-sm text-muted">%</span></span>
-          </div>
-          <div className="h-[3px] overflow-hidden rounded-full bg-line">
-            <i className="block h-full rounded-full transition-[width,background-color] duration-500 ease-out" style={{ width: `${pct}%`, backgroundColor: curColor }} />
-          </div>
-          <p className="h-5 text-sm transition-colors duration-300" style={{ color: done ? curColor : 'var(--text-secondary)' }}>
-            {done > total ? 'Tema dominado' : done ? cur.title : 'Bajá para recorrer los pasos'}
-          </p>
-        </div>
+  const dom = (
+    <div className="rl-dom rl-dom-top">
+      <span className="rl-domlabel">dominio del tema</span>
+      <span className="rl-bar"><i style={{ width: `${pct}%`, backgroundSize: `${pct > 0 ? 10000 / pct : 100}% 100%` }} /></span>
+      <span className="rl-pct tabular-nums">{pct}<small>%</small></span>
+    </div>
+  )
+
+  // hoja izquierda: qué se hace en la etapa y para qué
+  const info = (g) => {
+    const Doodle = DOODLE[g.label], t = INFO[g.label]
+    return (
+      <div className="rl-info" style={{ '--c': g.color }}>
+        <Kicker color={g.color}>{g.label.toLowerCase()}</Kicker>
+        <h3 className="display rl-it">{t.title} <span className="accent">{t.accent}</span></h3>
+        <p>{t.desc}</p>
+        {Doodle && <span className="rl-gd" aria-hidden="true"><Doodle size="84px" /></span>}
       </div>
-
-      {/* tarjetas medianas (ícono + paso + título) que se apilan al scrollear */}
-      <ol className="relative mx-auto w-full min-w-0 max-w-[440px]">
-        {STEPS.map((s, i) => {
-          const color = s.group.color ?? s.color
-          const group = s.group.label ?? s.group
-          return (
-            <li key={s.title} ref={(el) => (cards.current[i] = el)} className="sticky mb-[18vh]" style={{ top: `calc(7rem + ${i * 10}px)` }}>
-              <article className="flex origin-top items-center gap-5 rounded-[26px] border px-6 py-6 will-change-transform sm:gap-6 sm:px-7 sm:py-7"
-                style={{ background: 'linear-gradient(180deg, color-mix(in srgb, var(--text) 4%, var(--bg-card)), var(--bg-card))',
-                  borderColor: `color-mix(in srgb, ${color} 18%, var(--border))`,
-                  boxShadow: `inset 0 1px 0 color-mix(in srgb, var(--text) 7%, transparent), 0 16px 36px -28px rgba(0,0,0,.55)` }}>
-                <span className="grid size-14 shrink-0 place-items-center rounded-full border"
-                  style={{ color, background: `color-mix(in srgb, ${color} 10%, var(--bg-elev))`, borderColor: `color-mix(in srgb, ${color} 22%, var(--border))` }}>
-                  <s.Icon />
-                </span>
-                <div className="grid min-w-0 gap-1">
-                  <span className="flex items-center gap-2 font-mono text-[.68rem] tracking-[.16em] uppercase">
-                    <span className="text-muted">Paso {String(i + 1).padStart(2, '0')}</span>
-                    <i className="size-1 rounded-full bg-rule" />
-                    <span style={{ color }}>{group}</span>
-                  </span>
-                  <h3 className="text-[1.2rem] leading-snug font-medium tracking-[-.02em] [text-wrap:wrap] sm:text-[1.35rem]" title={s.text}>{s.title}</h3>
-                </div>
-              </article>
-            </li>
-          )
-        })}
-        <li ref={(el) => (cards.current[total] = el)} className="sticky" style={{ top: `calc(7rem + ${total * 10}px)` }}>
-          <article className="flex items-center gap-6 rounded-[26px] border px-7 py-7"
-            style={{ background: 'linear-gradient(135deg, color-mix(in srgb, var(--violet) 16%, var(--bg-card)), color-mix(in srgb, var(--pink) 8%, var(--bg-card)))',
-              borderColor: 'color-mix(in srgb, var(--violet) 35%, var(--border))', boxShadow: '0 16px 40px -28px var(--violet)' }}>
-            <span className="grid size-14 shrink-0 place-items-center rounded-full text-on-accent" style={{ background: 'linear-gradient(135deg, var(--violet), var(--pink))' }}><IcoDominio /></span>
-            <div className="grid gap-1">
-              <span className="font-mono text-[.68rem] tracking-[.16em] text-muted uppercase">Meta</span>
-              <p className="text-[1.35rem] font-medium tracking-[-.02em]">100 % <span className="accent">de dominio</span></p>
+    )
+  }
+  // hoja derecha: los pasos concretos, que se van tildando
+  const steps = (g) => (
+    <div className="rl-steps" style={{ '--c': g.color }}>
+      <div className="rl-mdesc">{info(g)}</div>
+      <ol className="rl-list">
+        {g.items.map(([s, i]) => (
+          <li key={s.title} ref={(el) => (rows.current[i] = el)} className={`rl-row ${s.goal ? 'rl-goal' : ''}`} data-on={reduce ? '1' : '0'}>
+            <svg className="rl-box" viewBox="0 0 30 30" aria-hidden="true">
+              <path className="rl-sq" d="M5 6c6-2 13-1 19 0 1 6 1 12 0 18-6 2-13 1-19 0-1-6-1-12 0-18z" />
+              <path className="rl-tick" pathLength="1" d="M8 16l5 6L26 6" />
+            </svg>
+            <div className="rl-body">
+              <h4><span>{s.title}</span></h4>
+              <p>{s.text}</p>
             </div>
-          </article>
-        </li>
+          </li>
+        ))}
       </ol>
+    </div>
+  )
+
+  const stack = reduce ? (
+    <div className="rl-static">
+      <p className="rl-cap" style={{ order: 99 }}>100 % de dominio: tema dominado</p>
+      {groups.map((g) => (
+        <section key={g.label} className="rl-spread" aria-label={g.label}>
+          <div className="rl-pg rl-pg-l">{info(g)}</div>
+          <div className="rl-pg rl-pg-r">{steps(g)}</div>
+        </section>
+      ))}
+    </div>
+  ) : (
+    <div ref={book} className="rl-book">
+      <i ref={ribbon} className="rl-ribbon" aria-hidden="true" style={{ '--rc': groups[0].color }} />
+      <section ref={(el) => (leaves.current[0] = el)} className="rl-leaf rl-hard" style={{ zIndex: 100 }} aria-label="Portada">
+        <i className="rl-edge" aria-hidden="true" />
+        <div className="rl-face rl-pg rl-pg-r rl-cover"><Cover /></div>
+        <div className="rl-face rl-back rl-pg rl-pg-l" aria-hidden="true">{info(groups[0])}</div>
+      </section>
+      {groups.map((g, i) => (
+        <section key={g.label} ref={(el) => (leaves.current[i + 1] = el)} className={`rl-leaf ${i === G - 1 ? 'rl-hard' : ''}`} style={{ zIndex: 99 - i }} aria-label={g.label}>
+          {i === G - 1 && <i className="rl-edge" aria-hidden="true" />}
+          <div className="rl-face rl-pg rl-pg-r">{steps(g)}</div>
+          {i < G - 1
+            ? <div className="rl-face rl-back rl-pg rl-pg-l" aria-hidden="true">{info(groups[i + 1])}</div>
+            : <div className="rl-face rl-back rl-pg rl-pg-l rl-cover" aria-hidden="true"><Cover done /></div>}
+        </section>
+      ))}
+      <div ref={cover} className="rl-cover rl-cover-m" aria-hidden="true" style={{ opacity: 0 }}><Cover done /></div>
+    </div>
+  )
+
+  // título armado letra por letra (cada palabra recorta su máscara, cada letra sube con un pequeño giro)
+  let li = 0
+  const title = (
+    <h2 className="display rl-title" aria-label={TITLE.map((t) => t.w).join(' ')}>
+      {TITLE.map((t, wi) => (
+        <span key={wi}>
+          <span className={`rl-word ${t.a ? 'accent' : ''}`} aria-hidden="true">
+            {[...t.w].map((ch) => { const k = li++; return <span key={k} ref={(el) => (letters.current[k] = el)} className="rl-let" style={reduce ? { transform: 'none' } : undefined}>{ch}</span> })}
+          </span>{' '}
+        </span>
+      ))}
+    </h2>
+  )
+  const head = (
+    <div className="rl-head">
+      <span ref={kick} style={reduce ? undefined : { opacity: 0 }}><Kicker>Tu ruta</Kicker></span>
+      {title}
+      <div ref={para} className="grid justify-items-center gap-5" style={reduce ? undefined : { opacity: 0 }}>
+        <p className="balance max-w-[44ch] text-muted">{PARA}</p>
+        {!reduce && (
+          <button type="button" ref={mini} className="rl-open" onClick={goBoard} aria-label="Abrir el libro de la ruta">
+            <MiniBook />
+            <span className="rl-opentxt">abrí el libro ↓</span>
+          </button>
+        )}
+      </div>
+    </div>
+  )
+
+  return reduce ? (
+    <div className="mx-auto grid max-w-[980px] gap-8 px-4 py-24 sm:px-10">{head}{dom}{stack}</div>
+  ) : (
+    <div ref={wrap} style={{ height: `${(INTRO + G + CL) * 85 + 100}vh` }}>
+      <div className="sticky top-0 grid h-dvh place-items-center overflow-hidden">
+        {/* fondos: primero el semicírculo lila de la sección, después uno por etapa (ancho completo) */}
+        <div ref={(el) => (bgs.current[0] = el)} aria-hidden="true" className="rl-wash" style={{ backgroundColor: LILA, clipPath: 'circle(0px at 50% 100%)' }} />
+        {groups.slice(1).map((g, j) => (
+          <div key={g.label} ref={(el) => (bgs.current[j + 1] = el)} aria-hidden="true" className="rl-wash"
+            style={{ backgroundColor: TINT(g.color), clipPath: 'circle(0px at 50% 100%)' }} />
+        ))}
+        <div ref={(el) => (bgs.current[G] = el)} aria-hidden="true" className="rl-wash" style={{ backgroundColor: LILA, clipPath: 'circle(0px at 50% 100%)' }} />
+
+        {/* entrada: el título (con sus garabatos) */}
+        <div ref={hdr} className="rl-intro">
+          <Floaty rot={-6} delay={.4} label="un paso a la vez" style={{ left: '7%', top: '26%' }}><FootDoodle /></Floaty>
+          <Floaty rot={5} delay={1.6} label="la meta" style={{ right: '7%', top: '24%' }}><FlagDoodle /></Floaty>
+          {head}
+        </div>
+
+        {/* anotador */}
+        <div ref={board} className="rl-board" style={{ visibility: 'hidden', opacity: 0, transformOrigin: '50% 0' }}>{dom}{stack}</div>
+      </div>
     </div>
   )
 }
