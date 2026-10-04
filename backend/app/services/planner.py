@@ -10,14 +10,28 @@ from datetime import date, timedelta
 MODULES = ("aprender", "practicar", "consolidar")
 MIN_SESSIONS = 3
 
-# Proporción de sesiones por módulo según la autoevaluación inicial.
+# Proporción de sesiones por módulo según el nivel inicial.
 # Quien ya sabe más necesita menos teoría y más práctica/consolidación.
 WEIGHTS = {
-    0: (0.50, 0.35, 0.15),  # nunca lo vi
-    1: (0.42, 0.40, 0.18),  # lo vi pero no lo entiendo
-    2: (0.32, 0.46, 0.22),  # lo entiendo pero me cuesta aplicarlo
-    3: (0.22, 0.50, 0.28),  # puedo resolver ejercicios
+    "principiante": (0.48, 0.36, 0.16),
+    "intermedio": (0.36, 0.44, 0.20),
+    "avanzado": (0.24, 0.50, 0.26),
 }
+
+
+def required_mastery(grade: int) -> int:
+    """Dominio requerido según la nota objetivo (HU-002, CA2): 60 % para 6 o 7, 80 % para 8 o 9 y 90 % para 10."""
+    if not 6 <= grade <= 10:
+        raise ValueError("La nota objetivo va de 6 a 10")
+    return 60 if grade <= 7 else 80 if grade <= 9 else 90
+
+
+def weights_for(level: str, mastery: int) -> tuple[float, float, float]:
+    """Una nota más alta exige más dominio: se pasa parte de Aprender a Practicar y Consolidar.
+    Con 60 % no cambia; con 80 %, 4 puntos; con 90 %, 8 puntos (dos tercios a Practicar)."""
+    a, p, c = WEIGHTS[level]
+    shift = {60: 0.0, 80: 0.04, 90: 0.08}[mastery]
+    return (a - shift, p + shift * 2 / 3, c + shift / 3)
 
 
 class NotEnoughSessions(ValueError):
@@ -57,13 +71,13 @@ def split_counts(total: int, weights: tuple[float, ...]) -> list[int]:
     return counts
 
 
-def build_plan(start: date, end: date, weekdays: list[int], minutes: int, level: int) -> list[PlannedSession]:
+def build_plan(start: date, end: date, weekdays: list[int], minutes: int, level: str, mastery: int = 60) -> list[PlannedSession]:
     days = available_days(start, end, weekdays)
     if not days:
         raise NotEnoughSessions("No hay ningún día disponible entre esas fechas.")
     # La ruta cubre siempre los tres módulos. Si hay menos días que módulos (por ejemplo,
     # se estudia para un examen de mañana), varias sesiones caen en el mismo día.
     total = max(MIN_SESSIONS, len(days))
-    counts = split_counts(total, WEIGHTS[level])
+    counts = split_counts(total, weights_for(level, mastery))
     modules = [m for m, c in zip(MODULES, counts) for _ in range(c)]
     return [PlannedSession(i + 1, days[i * len(days) // total], m, minutes) for i, m in enumerate(modules)]

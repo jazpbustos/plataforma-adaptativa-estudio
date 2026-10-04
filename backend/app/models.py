@@ -23,14 +23,16 @@ class StudyPlan(SQLModel, table=True):
     user_id: int = Field(foreign_key="user.id", index=True)
     subject: str
     topic: str
-    language: str = "python"
+    language: str = "python"  # o "material": se toma del material cuando se procese (HU-003)
     goal: str  # "examen" | "aprender"
     start_date: date
     end_date: date
     weekdays: str  # "0,2,4" (0 = lunes)
     minutes_per_session: int
     preferred_time: str  # "manana" | "tarde" | "noche"
-    level: int  # 0..3 autoevaluación inicial
+    level: str  # nivel inicial: "principiante" | "intermedio" | "avanzado"
+    target_grade: int = 8  # nota objetivo, de 6 a 10
+    required_mastery: int = 80  # dominio requerido por la nota: 60, 80 o 90 %
     learn_format: str  # "resumen" | "preguntas" | "ejercicio" | "variar"
     hint_level: str  # "minimas" | "normales"
     mastery: int = 0  # 0..100

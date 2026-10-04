@@ -12,12 +12,26 @@ export const MODULES = {
 export const MATERIA = 'Materia de programación'
 
 export const WEEKDAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
-export const LEVELS = [
-  ['Nunca lo vi', 'Arrancamos desde cero, con más tiempo para comprender.'],
-  ['Lo vi, pero no lo entiendo', 'Repasamos la teoría antes de pasar al código.'],
-  ['Lo entiendo, pero me cuesta aplicarlo', 'Menos teoría y más ejercicios.'],
-  ['Puedo resolver ejercicios', 'Vamos directo a practicar y a explicarlo con tus palabras.'],
+// Nivel inicial declarado por el estudiante (diccionario de datos: OBJETIVO_ESTUDIO.nivel_inicial).
+export const LEVELS = {
+  principiante: { label: 'Principiante', desc: 'Es la primera vez que lo veo o lo vi muy por arriba.' },
+  intermedio: { label: 'Intermedio', desc: 'Conozco la teoría, pero me cuesta llevarla al código.' },
+  avanzado: { label: 'Avanzado', desc: 'Resuelvo ejercicios; quiero afianzarlo y no trabarme.' },
+}
+
+// Contenidos del alcance del prototipo (Entrega 2, Alcances).
+export const TOPICS = [
+  { value: 'Sintaxis y estructuras de control', desc: 'Variables, condicionales y bucles' },
+  { value: 'Arreglos, pilas y colas', desc: 'Estructuras de datos lineales' },
+  { value: 'Recursividad', desc: 'Funciones que se llaman a sí mismas' },
+  { value: 'Búsqueda y ordenamiento', desc: 'Un algoritmo de cada uno' },
 ]
+
+// Lenguaje de los ejemplos y ejercicios. "material": se toma del material de la cátedra (HU-002, CA4).
+export const LANGUAGES = { python: 'Python', java: 'Java', c: 'C', cpp: 'C++', javascript: 'JavaScript', material: 'El de mi material' }
+
+// Dominio requerido según la nota objetivo (HU-002, CA2). Misma regla que el backend.
+export const requiredMastery = (grade) => (grade <= 7 ? 60 : grade <= 9 ? 80 : 90)
 
 // Las fechas llegan como "2026-09-21": las parseamos como fecha local, no UTC.
 export const parseDay = (s) => { const [y, m, d] = String(s).slice(0, 10).split('-').map(Number); return new Date(y, m - 1, d) }

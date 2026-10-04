@@ -21,13 +21,16 @@ class UserOut(BaseModel):
 class PlanIn(BaseModel):
     subject: str = Field(min_length=2, max_length=120)
     topic: str = Field(min_length=2, max_length=120)
-    language: Literal["python"] = "python"
+    # Lenguaje de los ejemplos y ejercicios. "material": se toma del material de la cátedra (HU-002, CA4).
+    language: Literal["python", "java", "c", "cpp", "javascript", "material"]
     goal: Literal["examen", "aprender"] = "examen"
     start_date: date
     end_date: date
     weekdays: list[int] = Field(min_length=1, max_length=7)
-    minutes_per_session: Literal[20, 45, 60, 90]
-    level: int = Field(ge=0, le=3)
+    level: Literal["principiante", "intermedio", "avanzado"]
+    target_grade: int = Field(ge=6, le=10)
+    # No se pide al configurar (no forma parte de HU-002): estima la duración de cada sesión.
+    minutes_per_session: Literal[20, 45, 60, 90] = 45
     # Preferencias con valor por defecto: se eligen dentro de cada módulo, no al configurar el objetivo.
     preferred_time: Literal["manana", "tarde", "noche"] = "tarde"
     learn_format: Literal["resumen", "preguntas", "ejercicio", "variar"] = "variar"
@@ -63,6 +66,7 @@ class SessionOut(BaseModel):
 
 
 class PreviewOut(BaseModel):
+    required_mastery: int
     total_sessions: int
     total_minutes: int
     by_module: dict[str, int]

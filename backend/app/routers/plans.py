@@ -10,7 +10,7 @@ from ..db import get_session
 from ..models import Material, StudyPlan, StudySession, User
 from ..schemas import PlanIn, PreviewOut, SessionOut
 from ..security import current_user
-from ..services.planner import MODULES, NotEnoughSessions, build_plan
+from ..services.planner import MODULES, NotEnoughSessions, build_plan, required_mastery
 
 router = APIRouter(tags=["planes"])
 ALLOWED_EXT = {".pdf", ".md", ".txt", ".docx", ".py"}
@@ -24,8 +24,9 @@ def _plan_or_404(db: Session, plan_id: int, user: User) -> StudyPlan:
 
 
 def _preview(body: PlanIn) -> PreviewOut:
+    mastery = required_mastery(body.target_grade)
     try:
-        planned = build_plan(body.start_date, body.end_date, body.weekdays, body.minutes_per_session, body.level)
+        planned = build_plan(body.start_date, body.end_date, body.weekdays, body.minutes_per_session, body.level, mastery)
     except NotEnoughSessions as e:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(e))
     by_module = {m: sum(1 for s in planned if s.module == m) for m in MODULES}
@@ -33,6 +34,7 @@ def _preview(body: PlanIn) -> PreviewOut:
     if body.goal == "examen" and len(planned) < 6:
         warning = "Quedan pocas sesiones antes del examen: conviene sumar días si podés."
     return PreviewOut(
+        required_mastery=mastery,
         total_sessions=len(planned),
         total_minutes=sum(s.minutes for s in planned),
         by_module=by_module,
@@ -51,6 +53,7 @@ def create_plan(body: PlanIn, user: User = Depends(current_user), db: Session = 
     preview = _preview(body)
     data = body.model_dump()
     data["weekdays"] = ",".join(map(str, body.weekdays))
+    data["required_mastery"] = preview.required_mastery
     plan = StudyPlan(user_id=user.id, **data)
     db.add(plan)
     db.flush()  # obtiene plan.id sin cerrar la transacción
@@ -123,6 +126,7 @@ def dashboard(user: User = Depends(current_user), db: Session = Depends(get_sess
         items.append({
             "id": p.id, "subject": p.subject, "topic": p.topic, "goal": p.goal, "end_date": p.end_date,
             "start_date": p.start_date, "level": p.level, "minutes_per_session": p.minutes_per_session,
+            "target_grade": p.target_grade, "required_mastery": p.required_mastery, "language": p.language,
             "weekdays": [int(d) for d in p.weekdays.split(",")],
             "mastery": p.mastery, "points": p.points,
             "sessions_total": len(sessions), "sessions_done": done,

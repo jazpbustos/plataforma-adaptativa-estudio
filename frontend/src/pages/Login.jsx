@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { GoogleLogin, GoogleOAuthProvider } from '@react-oauth/google'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
-import Logo from '../components/Logo.jsx'
-import { TEAR } from '../components/Notebook.jsx'
+import PaperTopbar from '../components/PaperTopbar.jsx'
+import usePaperTheme from '../lib/usePaperTheme.js'
 import { Floaty, DocDoodle, CodeDoodle, MedalDoodle, QuizDoodle } from '../components/Doodles.jsx'
 import Synapse from '../components/Synapse.jsx'
 
@@ -14,14 +14,7 @@ export default function Login() {
   const navigate = useNavigate()
   const from = useLocation().state?.from?.pathname || '/app'
 
-  // Igual que la portada: siempre papel claro (la preferencia guardada para la app no se toca).
-  useEffect(() => {
-    const root = document.documentElement, prev = root.dataset.theme
-    root.dataset.theme = 'light'
-    const mo = new MutationObserver(() => { if (root.dataset.theme !== 'light') root.dataset.theme = 'light' })
-    mo.observe(root, { attributes: true, attributeFilter: ['data-theme'] })
-    return () => { mo.disconnect(); if (prev) root.dataset.theme = prev }
-  }, [])
+  usePaperTheme() // igual que la portada: siempre papel claro
 
   if (!loading && user) return <Navigate to={from} replace />
 
@@ -35,13 +28,7 @@ export default function Login() {
   return (
     <div className="notebook min-h-dvh overflow-x-clip">
       <div className="nb-page nb-lined relative flex min-h-dvh flex-col">
-        <div className="nb-topsheet">
-          <header className="relative mx-auto flex w-full max-w-[1280px] items-center justify-between px-4 pt-4 pb-3 sm:px-10">
-            <Logo />
-            <Link to="/" className="text-sm text-muted hover:text-fg">Volver al inicio ↗</Link>
-          </header>
-          <svg className="nb-toptear" viewBox="0 0 1440 20" preserveAspectRatio="none" aria-hidden="true"><path d={TEAR} /></svg>
-        </div>
+        <PaperTopbar right={<Link to="/" className="text-sm text-muted hover:text-fg">Volver al inicio ↗</Link>} />
 
       <main className="relative z-[2] mx-auto grid w-full flex-1 place-items-center px-5 py-12">
         <Floaties />

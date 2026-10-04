@@ -86,6 +86,28 @@ export const MedalDoodle = (p) => (
     <path d="M82 22l2 6m5-9l-3 5" strokeWidth="2.4" />
   </Doodle>
 )
+export const CalendarDoodle = (p) => (
+  <Doodle {...p}>
+    <path d="M16 26c22-2 46-2 68 0 2 18 2 40 0 58-22 2-46 2-68 0-2-18-2-40 0-58z" fill="var(--doodle-fill)" />
+    <path d="M17 40c22-1 44-1 66 0" />
+    <path d="M34 17v15M66 17v15" />
+    <path d="M28 52h.01M42 52h.01M56 52h.01M70 52h.01M28 66h.01M42 66h.01M28 78h.01M42 78h.01M70 78h.01" strokeWidth="5" />
+    <path d="M51 59c4-3 12-2 13 4 1 6-4 10-9 9-5 0-8-4-7-8 0-2 2-4 4-5" strokeWidth="2.8" />
+    <path d="M86 12l2 6m5-9l-3 5m6 2l-6-1" strokeWidth="2.4" />
+  </Doodle>
+)
+/* Hoja corregida con la nota encerrada, como la marca un docente */
+export const GradeDoodle = (p) => (
+  <Doodle {...p}>
+    <path d="M24 12c10-2 26-1 36 0l14 14c1 12 0 40-1 58-14 2-36 1-50 0-1-22-1-50 1-72z" fill="var(--doodle-fill)" />
+    <path d="M60 12c0 6-1 11 1 14 4 1 9 0 13 0" />
+    <path d="M32 30c7-1 14 0 20-1M32 39c9 0 16-1 24 0" strokeWidth="2.6" />
+    <path d="M41 56l5-4v25" strokeWidth="3.6" />
+    <path d="M60 52c5 0 8 6 8 13s-3 12-8 12-8-6-8-12 3-13 8-13z" strokeWidth="3.6" />
+    <path d="M33 66c-1-12 12-20 28-19 15 1 26 9 25 19-1 11-15 18-30 17-13-1-24-7-24-16 0-6 4-10 10-13" strokeWidth="2.4" />
+    <path d="M86 40l3 5m4-9l-3 5m6 2l-6-1" strokeWidth="2.4" />
+  </Doodle>
+)
 /* Garabato flotante con aclaración manuscrita opcional */
 export function Floaty({ children, rot = 0, delay = 0, label, className = '', style }) {
   return (
