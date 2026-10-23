@@ -4,3 +4,7 @@ uploads/
 __pycache__/
 .venv/
 .pytest_cache/
+chroma/
+fuentes/
+test_chroma/
+test_uploads/

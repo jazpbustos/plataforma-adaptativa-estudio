@@ -11,6 +11,5 @@ export const IconGear = (p) => <svg {...base} {...p}><circle cx="8" cy="8" r="2"
 export const IconUpload = (p) => <svg {...base} {...p}><path d="M8 11V3M4.8 6.2L8 3l3.2 3.2M3 13.5h10" /></svg>
 export const IconCheck = (p) => <svg {...base} strokeWidth={2} {...p}><path d="M3.5 8.5l3 3 6-7" /></svg>
 export const IconLock = (p) => <svg {...base} {...p}><rect x="3.5" y="7" width="9" height="6.5" rx="1.5" /><path d="M5.5 7V5.2a2.5 2.5 0 015 0V7" /></svg>
-export const IconArrow = (p) => <svg {...base} {...p}><path d="M3 8h10M9 4l4 4-4 4" /></svg>
 export const IconChevron = (p) => <svg {...base} {...p}><path d="M4.5 6.5L8 10l3.5-3.5" /></svg>
 export const IconMenu = (p) => <svg {...base} {...p}><path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11" /></svg>

@@ -1,4 +1,3 @@
-import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import BrainStory from '../components/BrainStory.jsx'
 import RutaDominio from '../components/RutaDominio.jsx'
@@ -18,14 +17,6 @@ function Eyebrow({ children }) {
 
 export default function Landing() {
   const { user } = useAuth()
-  // La portada es siempre clara (el cuaderno está pensado en papel claro). La preferencia guardada para la app no se toca: al salir se restaura.
-  useEffect(() => {
-    const root = document.documentElement, prev = root.dataset.theme
-    root.dataset.theme = 'light'
-    const mo = new MutationObserver(() => { if (root.dataset.theme !== 'light') root.dataset.theme = 'light' })
-    mo.observe(root, { attributes: true, attributeFilter: ['data-theme'] })
-    return () => { mo.disconnect(); if (prev) root.dataset.theme = prev }
-  }, [])
   const startState = user ? undefined : { from: { pathname: '/empezar' } }
   return (
     <div className="notebook min-h-dvh overflow-x-clip">

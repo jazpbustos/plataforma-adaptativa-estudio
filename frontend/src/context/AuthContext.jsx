@@ -17,8 +17,8 @@ export function AuthProvider({ children }) {
     })
   }, [])
 
-  const loginGoogle = useCallback(async (credential) => {
-    setUser(await api('/auth/google', { method: 'POST', body: { credential } }))
+  const loginGoogle = useCallback(async (accessToken) => {
+    setUser(await api('/auth/google', { method: 'POST', body: { access_token: accessToken } }))
   }, [])
   const loginDev = useCallback(async () => {
     setUser(await api('/auth/dev', { method: 'POST' }))
@@ -27,9 +27,12 @@ export function AuthProvider({ children }) {
     await api('/auth/logout', { method: 'POST' }).catch(() => {})
     setUser(null)
   }, [])
+  const setPreferredLanguage = useCallback(async (preferred_language) => {
+    setUser(await api('/auth/me', { method: 'PATCH', body: { preferred_language } }))
+  }, [])
 
   return (
-    <AuthContext.Provider value={{ user, config, loading, loginGoogle, loginDev, logout }}>
+    <AuthContext.Provider value={{ user, config, loading, loginGoogle, loginDev, logout, setPreferredLanguage }}>
       {children}
     </AuthContext.Provider>
   )

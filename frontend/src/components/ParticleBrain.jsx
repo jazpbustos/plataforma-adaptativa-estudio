@@ -92,18 +92,17 @@ export default function ParticleBrain({ center = [.5, .5], size = .5, anchors = 
   const ref = useRef(null)
 
   useEffect(() => {
-    const canvas = ref.current, ctx = canvas.getContext('2d'), root = document.documentElement, host = canvas.parentElement
+    const canvas = ref.current, ctx = canvas.getContext('2d'), host = canvas.parentElement
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
     const B = build(), N = B.N, rr = mulberry(11)
     // origen de cada partícula (una de las fuentes), recorrido y demora
     const sg = new Uint8Array(N), sa = new Float32Array(N), sr = new Float32Array(N), dl = new Float32Array(N), ar = new Float32Array(N)
     for (let i = 0; i < N; i++) { sg[i] = (rr() * 3) | 0; sa[i] = rr() * 6.283; sr[i] = Math.sqrt(rr()) * 26; dl[i] = rr(); ar[i] = (rr() - .5) * 2 }
     const sx = new Float32Array(N), sy = new Float32Array(N), al = new Float32Array(N), bk = new Int8Array(N), sz = new Float32Array(N), co = new Float32Array(N)
-    let W = 0, H = 0, SC = 0, CX = 0, CY = 0, dark = false, raf = 0, src = [], t0 = 0
+    let W = 0, H = 0, SC = 0, CX = 0, CY = 0, raf = 0, src = [], t0 = 0
     const mouse = { x: 0, y: 0 }
     const L = (() => { const v = [-.5, .62, .62], l = Math.hypot(...v); return v.map((a) => a / l) })()
 
-    const theme = () => { dark = getComputedStyle(root).colorScheme === 'dark' }
     const layout = () => {
       const dpr = Math.min(devicePixelRatio || 1, 2)
       W = canvas.clientWidth; H = canvas.clientHeight
@@ -121,7 +120,7 @@ export default function ParticleBrain({ center = [.5, .5], size = .5, anchors = 
       const yaw = reduce ? .5 : -1.0 + ts * .3 + Math.min(ts, 4) * .0 + mouse.x * .25, pitch = .2 + mouse.y * .1
       const cy = Math.cos(yaw), sy2 = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch)
       ctx.clearRect(0, 0, W, H)
-      const ink = dark ? [214, 200, 255] : [74, 38, 150], hi = dark ? [236, 228, 255] : [150, 108, 236]
+      const ink = [74, 38, 150], hi = [150, 108, 236]
       const pr = SC / 235
 
       for (let i = 0; i < N; i++) {
@@ -154,8 +153,7 @@ export default function ParticleBrain({ center = [.5, .5], size = .5, anchors = 
         if (facing < -.08 && k >= 1) { bk[i] = -1; continue }
         const diff = Math.max(0, nx * L[0] + ny * L[1] + nz * L[2])
         const rim = Math.pow(1 - Math.max(0, facing), 2)
-        let tone = dark ? clamp(diff * 1.05 + .06 + B.g[i] * -.25 + rim * .25) : clamp(1 - diff * 1.05 + rim * .45 + B.g[i] * .55)
-        if (dark) tone = clamp(tone - B.g[i] * .15)
+        const tone = clamp(1 - diff * 1.05 + rim * .45 + B.g[i] * .55)
         const vis = clamp((tone * 1.2 + .12 - B.r[i] * .95) * 4.5) * clamp((facing + .08) * 5) * Math.min(1, k * 3) * (.72 + .28 * clamp((pz + 1) / 1.6))
         if (vis < .06) { bk[i] = -1; continue }
         bk[i] = Math.min(3, (vis * 4) | 0); sx[i] = px; sy[i] = pyy
@@ -166,7 +164,7 @@ export default function ParticleBrain({ center = [.5, .5], size = .5, anchors = 
         for (let c = 0; c < 2; c++) {            // dos tonos: más profundo / más lila
           const col = c ? hi : ink
           ctx.fillStyle = `rgba(${col[0]},${col[1]},${col[2]},${a})`; ctx.beginPath()
-          const thr = dark ? .45 : .62
+          const thr = .62
           for (let i = 0; i < N; i++) { if (bk[i] !== b || (co[i] > thr ? 0 : 1) !== c) continue; ctx.rect(sx[i], sy[i], sz[i], sz[i]) }
           ctx.fill()
         }
@@ -176,13 +174,11 @@ export default function ParticleBrain({ center = [.5, .5], size = .5, anchors = 
 
     const onMove = (e) => { const b = canvas.getBoundingClientRect(); mouse.x = clamp(((e.clientX - b.left) / b.width - .5) * 2, -1, 1); mouse.y = clamp(((e.clientY - b.top) / b.height - .5) * 2, -1, 1) }
     const ro = new ResizeObserver(() => { layout(); if (reduce) frame(0) })
-    const mo = new MutationObserver(() => requestAnimationFrame(() => { theme(); if (reduce) frame(0) }))
-    theme(); layout(); ro.observe(canvas); ro.observe(host)
-    mo.observe(root, { attributes: true, attributeFilter: ['data-theme'] })
+    layout(); ro.observe(canvas); ro.observe(host)
     host.addEventListener('pointermove', onMove)
     document.fonts?.ready.then(() => { layout(); if (reduce) frame(0) })
     raf = requestAnimationFrame(frame)
-    return () => { cancelAnimationFrame(raf); ro.disconnect(); mo.disconnect(); host.removeEventListener('pointermove', onMove) }
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); host.removeEventListener('pointermove', onMove) }
   }, [size, center[0], center[1], anchors])
 
   return <canvas ref={ref} aria-hidden="true" className={`pointer-events-none absolute inset-0 block h-full w-full ${className}`} />

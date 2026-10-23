@@ -3,22 +3,37 @@ import { Link, useOutletContext } from 'react-router-dom'
 import { IconFile, IconUpload } from '../components/Icons.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import Synapse from '../components/Synapse.jsx'
+import TopicSwitch from '../components/TopicSwitch.jsx'
 import { api } from '../lib/api.js'
 import { fullDate, kb, parseDay, shortDate } from '../lib/format.js'
 
 export const ACCEPT = ['.pdf', '.docx', '.txt', '.md', '.py']
 export const MAX_MB = 10
 
+// Estado del procesamiento (RAG): el archivo se indexa en segundo plano después de subirlo.
+const ESTADO = {
+  pendiente: ['Procesando…', 'var(--text-secondary)', 'Extrayendo el texto e indexándolo'],
+  procesado: ['Listo', 'var(--green)', 'Ya se usa en tus sesiones'],
+  'con error': ['No se pudo leer', 'var(--red)', 'No encontramos texto (¿es un PDF escaneado?)'],
+}
+
 export default function Material() {
-  const { data, reload } = useOutletContext()
+  const { data, reload, plan, selectPlan } = useOutletContext()
   const [items, setItems] = useState(null)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
   const input = useRef(null)
-  const plan = data?.plans?.[0]
 
+  const mine = items?.filter((f) => !plan || f.plan_id === plan.id) // solo el material del tema elegido
   const load = () => api('/materials').then(setItems).catch((e) => setMsg(e.message))
   useEffect(() => { load() }, [])
+  // Mientras haya archivos procesándose, se vuelve a consultar cada 2 segundos.
+  const processing = items?.some((f) => f.status === 'pendiente')
+  useEffect(() => {
+    if (!processing) return
+    const t = setTimeout(load, 2000)
+    return () => clearTimeout(t)
+  }, [items])
 
   const upload = async (files) => {
     if (!plan) return
@@ -36,50 +51,52 @@ export default function Material() {
 
   return (
     <div className="grid gap-8">
-      <PageHeader kicker={`Mi material${plan ? ` / ${plan.topic}` : ''}`} title="Todo parte" accent="de acá."
-        sub="Tu ruta combina estos apuntes con fuentes académicas indexadas. Si no cargás ninguno, se usan solo esas fuentes."
+      <PageHeader title="Mi material" sub="Tus apuntes se combinan con fuentes académicas del tema."
         action={plan && (
           <button type="button" className="btn btn-soft btn-sm" disabled={busy} onClick={() => input.current.click()}>
             <IconUpload className="size-4" /> Añadir archivo
           </button>
         )} />
+      {data?.plans?.length > 0 && (
+        <TopicSwitch plans={data.plans} current={plan} onSelect={selectPlan} />
+      )}
       <input ref={input} type="file" multiple accept={ACCEPT.join(',')} className="hidden" onChange={(e) => { upload([...e.target.files]); e.target.value = '' }} />
 
       {busy && <Synapse>Subiendo material</Synapse>}
       {msg && <p role="alert" className="text-sm text-orange">{msg}</p>}
 
-      {!items ? <Synapse>Cargando</Synapse> : items.length ? (
+      {!mine ? <Synapse>Cargando</Synapse> : mine.length ? (
         <ul className="grid gap-3 sm:grid-cols-2">
-          {items.map((f) => (
-            <li key={f.id} className="card grid gap-3 p-5">
+          {mine.map((f) => {
+            const [label, color, hint] = ESTADO[f.status] ?? ESTADO.pendiente
+            return <li key={f.id} className="card grid gap-3 p-5">
               <div className="flex items-center justify-between">
                 <IconFile className="size-5 text-violet" />
-                <span className="pill" style={{ '--c': 'var(--text-secondary)' }} title="El pipeline de procesamiento (RAG) se incorpora en un próximo sprint">Pendiente de procesar</span>
+                <span className="pill" style={{ '--c': color }} title={hint}>{label}</span>
               </div>
               <div className="min-w-0">
                 <p className="truncate text-[1.05rem] font-medium tracking-[-.01em]">{f.filename}</p>
                 <p className="text-xs text-muted">{kb(f.size_bytes)} · Añadido el {shortDate(new Date(f.uploaded_at))}</p>
               </div>
-              <p className="text-sm text-muted">{f.topic}</p>
             </li>
-          ))}
+          })}
         </ul>
       ) : (
         <button type="button" disabled={!plan} onClick={() => input.current.click()}
           className="grid cursor-pointer justify-items-center gap-2 rounded-2xl border border-dashed border-rule px-6 py-12 text-center transition hover:border-violet disabled:cursor-default">
           <IconUpload className="size-6 text-violet" />
-          <span className="font-medium">{plan ? 'Sin apuntes: tu ruta usa fuentes indexadas' : 'Primero configurá tu objetivo'}</span>
-          <span className="text-xs text-muted">{ACCEPT.join(' ').toUpperCase().replaceAll('.', '')} · hasta {MAX_MB} MB por archivo</span>
+          <span className="font-medium">{plan ? `Subí apuntes de ${plan.topic}` : 'Primero armá tu plan'}</span>
+          <span className="text-xs text-muted">Opcional · {ACCEPT.join(' ').toUpperCase().replaceAll('.', '')} · hasta {MAX_MB} MB</span>
         </button>
       )}
 
       {plan ? (
         <section className="card flex flex-wrap items-center justify-between gap-4 p-5">
           <div className="grid gap-1">
-            <span className="label">Tu ruta está lista</span>
-            <p className="text-sm">{plan.sessions_total} sesiones · {plan.topic} · objetivo: {fullDate(parseDay(plan.end_date))}</p>
+            <span className="label">Tu plan de {plan.topic}</span>
+            <p className="text-sm">{plan.sessions_total} sesiones · hasta el {fullDate(parseDay(plan.end_date))}</p>
           </div>
-          <Link to="/app" className="btn btn-primary btn-sm">Ver mi ruta <span className="arrow">→</span></Link>
+          <Link to="/app" className="btn btn-primary btn-sm">Ver mi plan <span className="arrow">→</span></Link>
         </section>
       ) : (
         <div><Link to="/empezar" className="btn btn-primary">Configurar objetivo <span className="arrow">→</span></Link></div>

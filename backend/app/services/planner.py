@@ -1,9 +1,10 @@
-"""Generador de la ruta de aprendizaje inicial.
+"""Generador del plan de estudio inicial (objetivo_estudio.plan_estudio).
 
 Primera versión determinística: reparte las sesiones disponibles entre los tres
 módulos respetando el orden pedagógico (Aprender → Practicar → Consolidar).
 El recálculo adaptativo según el avance real se suma en un sprint posterior.
 """
+import json
 from dataclasses import dataclass
 from datetime import date, timedelta
 
@@ -81,3 +82,16 @@ def build_plan(start: date, end: date, weekdays: list[int], minutes: int, level:
     counts = split_counts(total, weights_for(level, mastery))
     modules = [m for m, c in zip(MODULES, counts) for _ in range(c)]
     return [PlannedSession(i + 1, days[i * len(days) // total], m, minutes) for i, m in enumerate(modules)]
+
+
+# plan_estudio se guarda como JSON en objetivo_estudio (diccionario de datos).
+# Cada elemento es una sesión planificada; "estado" pasa a "hecha" cuando se completa la sesión real.
+def plan_a_json(planned: list[PlannedSession]) -> str:
+    return json.dumps([
+        {"posicion": s.position, "dia": s.day.isoformat(), "modulo": s.module, "minutos": s.minutes, "estado": "pendiente"}
+        for s in planned
+    ])
+
+
+def plan_desde_json(texto: str) -> list[dict]:
+    return [{**s, "dia": date.fromisoformat(s["dia"])} for s in json.loads(texto)]

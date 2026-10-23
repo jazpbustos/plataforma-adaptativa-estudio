@@ -64,7 +64,8 @@ Documentación interactiva de la API: http://localhost:8000/docs · Tests: `cd b
 | POST | `/api/plans` | Crea el plan y sus sesiones |
 | GET | `/api/plans` | Planes del usuario |
 | POST | `/api/plans/{id}/materials` | Sube un apunte (pdf, md, txt, docx, py · 10 MB) |
-| GET | `/api/materials` | Material de los planes activos |
+| GET | `/api/materials` | Material de los planes activos (con su estado de procesamiento) |
+| GET | `/api/plans/{id}/search?q=` | Fragmentos más parecidos a la consulta (RAG) |
 | GET | `/api/dashboard` | Datos de inicio y progreso |
 
 ## 5. Pantallas
@@ -78,13 +79,13 @@ Documentación interactiva de la API: http://localhost:8000/docs · Tests: `cd b
 | `/app/material` | Mi material |
 | `/app/progreso` | Progreso |
 | `/app/aprender`, `/practicar`, `/consolidar` | Módulos (en construcción) |
-| `/app/configuracion` | Cuenta y apariencia |
+| `/app/configuracion` | Cuenta y sesión |
 
 La configuración sigue el flujo definido para la plataforma:
 
 | Paso | Datos | Se usa en |
 |---|---|---|
-| 1. Configurar objetivo | tema, días disponibles, minutos por sesión, nivel inicial (0–3) | ruta adaptativa |
+| 1. Configurar objetivo | tema (4 contenidos del alcance), días disponibles, nivel inicial (principiante / intermedio / avanzado) y nota objetivo (6 a 10) | plan de estudio y dominio requerido |
 | 2. Subir material | apuntes (opcional) | material híbrido (pipeline RAG, próximo sprint) |
 | 3. Revisar la ruta | sesiones por semana y por módulo | confirmación antes de crear |
 
@@ -94,8 +95,37 @@ El formato de estudio y la intensidad de las pistas no se piden al configurar: s
 
 El generador inicial (`backend/app/services/planner.py`) toma los días disponibles y los reparte entre Aprender → Practicar → Consolidar en ese orden, con proporciones según el nivel inicial. La ruta cubre siempre los tres módulos: si hay menos días que módulos (por ejemplo, un examen al día siguiente), varias sesiones caen en el mismo día. El recálculo según el avance real queda para un sprint posterior.
 
-## 6. Próximos pasos
+## 6. Modelo de datos
+
+Las tablas siguen el DER de la Entrega 2 (Ilustración 5), con los mismos nombres: `tema`, `estudiante`, `objetivo_estudio`, `material_estudio`, `nivel_dominio`, `ejercicio`, `sesion_estudio`, `intento`, `dificultad_detectada`, `explicacion` y `punto` (`backend/app/models.py`).
+
+- Los cuatro temas del alcance se cargan solos al iniciar el backend.
+- `objetivo_estudio.plan_estudio` guarda el plan día por día en JSON; `sesion_estudio` registra las sesiones realizadas.
+- Un estudiante puede tener varios objetivos (temas) a la vez, pero uno solo por tema.
+- SQLite controla las claves foráneas (`PRAGMA foreign_keys = ON`).
+- Campos que no figuran en el DER: `estudiante.foto_url` y, en `material_estudio`, `ruta_archivo`, `tamano_bytes` y `estado`.
+
+La API conserva los nombres que usa el front (`plan`, `topic`, `sessions`…) y los traduce a estas entidades en `backend/app/routers/plans.py`.
+
+## 7. Material y RAG (HU-003)
+
+LangChain + ChromaDB, con un modelo de embeddings local y multilingüe (`paraphrase-multilingual-MiniLM-L12-v2`, vía FastEmbed). No usa servicios pagos; la primera vez descarga el modelo (~220 MB).
+
+1. Al subir un archivo se extrae el texto (PDF por página, DOCX y MD por títulos, TXT y PY completos).
+2. Se divide en fragmentos de ~800 caracteres con 150 de solapamiento.
+3. Cada fragmento se guarda en ChromaDB con los metadatos de la Ilustración 6: `id_material`, `id_tema`, `fuente` (propia/académica), `nombre_archivo` y `pagina_o_seccion`.
+4. `material_estudio.estado` pasa de *pendiente* a *procesado* (o *con error* si no tiene texto, p. ej. un PDF escaneado).
+5. Las búsquedas filtran por tema y devuelven solo fuentes académicas o material del propio estudiante.
+
+Fuentes académicas (artículos de Wikipedia en español, CC BY-SA 4.0), una vez, desde `backend/`:
+
+```bash
+python -m app.fuentes                 # descarga los artículos de los 4 temas y los indexa
+python -m app.buscar "Recursividad" "¿para qué sirve el caso base?"   # prueba de recuperación
+```
+
+## 8. Próximos pasos
 
 - Módulo Aprender (botón *Empezar sesión*).
-- Pipeline RAG del material (LangChain + ChromaDB) con el loader del cerebro.
+- Validar que el material corresponda al tema y detectar archivos repetidos.
 - Recalcular la ruta según el avance y calcular el dominio.

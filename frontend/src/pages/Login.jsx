@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { GoogleLogin, GoogleOAuthProvider } from '@react-oauth/google'
-import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { GoogleOAuthProvider, useGoogleLogin } from '@react-oauth/google'
+import { Link, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import PaperTopbar from '../components/PaperTopbar.jsx'
-import usePaperTheme from '../lib/usePaperTheme.js'
 import { Floaty, DocDoodle, CodeDoodle, MedalDoodle, QuizDoodle } from '../components/Doodles.jsx'
 import Synapse from '../components/Synapse.jsx'
 
@@ -11,16 +10,14 @@ export default function Login() {
   const { user, config, loading, loginGoogle, loginDev } = useAuth()
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  const navigate = useNavigate()
   const from = useLocation().state?.from?.pathname || '/app'
 
-  usePaperTheme() // igual que la portada: siempre papel claro
-
-  if (!loading && user) return <Navigate to={from} replace />
+  // HU-001: el primer ingreso (todavía sin objetivo de estudio) va a la configuración; si ya tiene uno, al panel.
+  if (!loading && user) return <Navigate to={user.has_plan ? from : '/empezar'} replace />
 
   const run = async (fn) => {
     setError(''); setBusy(true)
-    try { await fn(); navigate(from, { replace: true }) }
+    try { await fn() } // al guardarse el usuario, el <Navigate> de arriba decide a dónde ir
     catch (e) { setError(e.message) }
     finally { setBusy(false) }
   }
@@ -40,18 +37,14 @@ export default function Login() {
           </div>
 
           <div className="lg-card">
-            <div className="lg-gtitle"><GMark /><span>Ingresá con tu cuenta de Google</span></div>
+            <div className="lg-gtitle"><span>Ingresá con tu cuenta de Google</span></div>
             {loading ? <Synapse>Preparando</Synapse>
               : config?.offline ? <p className="text-sm text-red">No se pudo conectar con el servidor. Levantá el backend en el puerto 8000.</p>
               : (
                 <>
                   {config?.google_client_id ? (
                     <GoogleOAuthProvider clientId={config.google_client_id} locale="es">
-                      <div className={busy ? 'pointer-events-none opacity-50' : ''}>
-                        <GoogleLogin onSuccess={({ credential }) => run(() => loginGoogle(credential))}
-                          onError={() => setError('No se pudo iniciar sesión con Google.')}
-                          text="continue_with" shape="pill" size="large" width="300" locale="es" theme="outline" />
-                      </div>
+                      <GoogleButton disabled={busy} onToken={(token) => run(() => loginGoogle(token))} onError={setError} />
                     </GoogleOAuthProvider>
                   ) : (
                     <p className="font-mono text-xs text-orange">Falta GOOGLE_CLIENT_ID en backend/.env</p>
@@ -93,6 +86,26 @@ function BookMark() {
         </g>
       </svg>
     </div>
+  )
+}
+
+/*
+  Botón propio de Google: abre el popup de la cuenta y devuelve un access token que el backend verifica.
+  A diferencia del botón estándar, este flujo avisa cuando el popup se cierra sin elegir cuenta
+  (popup_closed), así se cumple HU-001 CA3: aviso y sin ingreso.
+*/
+function GoogleButton({ disabled, onToken, onError }) {
+  const abrir = useGoogleLogin({
+    scope: 'openid email profile',
+    onSuccess: ({ access_token }) => { onError(''); onToken(access_token) },
+    onError: () => onError('Google no permitió el ingreso. Probá de nuevo.'),
+    onNonOAuthError: ({ type }) => onError(type === 'popup_closed'
+      ? 'Cancelaste el ingreso con Google. Para entrar, elegí una cuenta.'
+      : 'No se pudo abrir la ventana de Google. Revisá que el navegador no bloquee ventanas emergentes.'),
+  })
+  return (
+    <button type="button" disabled={disabled} onClick={() => { onError(''); abrir() }}
+      className="btn btn-soft w-full justify-center gap-2.5 disabled:opacity-50"><GMark /> Continuar con Google</button>
   )
 }
 

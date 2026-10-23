@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Avatar } from '../components/AppHeader.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
 import PaperTopbar from '../components/PaperTopbar.jsx'
 import { Floaty, Kicker, GradeDoodle, CalendarDoodle, FlagDoodle, FootDoodle } from '../components/Doodles.jsx'
-import usePaperTheme from '../lib/usePaperTheme.js'
 import { IconCheck, IconChevron, IconFile, IconUpload } from '../components/Icons.jsx'
 import Synapse from '../components/Synapse.jsx'
 import { api } from '../lib/api.js'
@@ -22,9 +22,9 @@ const DOODLES = {
   plan: [{ D: FootDoodle, label: 'paso a paso', rot: -4 }, { D: FlagDoodle, label: 'tu meta', rot: 6 }],
 }
 const STEPS = [
-  { key: 'objetivo', kicker: 'antes de empezar', title: '¿Qué vas a estudiar?', sub: 'Elegí el tema, cuántos días tenés y a qué nota apuntás. Con eso armamos tu plan de estudio día por día.' },
-  { key: 'material', kicker: 'tu material', title: 'Sumá tu material de estudio.', sub: 'Es opcional. Lo combinamos con fuentes académicas del tema para que todo lo que estudies salga de lo que pide tu cátedra.' },
-  { key: 'plan', kicker: 'tu plan', title: 'Así queda tu plan de estudio.', sub: 'Revisalo antes de confirmarlo. A medida que avances, se va a ajustar a tu nivel de dominio.' },
+  { key: 'objetivo', kicker: 'antes de empezar', title: '¿Qué vas a estudiar?', sub: 'Tema, días, nivel y nota objetivo.' },
+  { key: 'material', kicker: 'tu material', title: 'Tu material', sub: 'Opcional. Se combina con fuentes académicas del tema.' },
+  { key: 'plan', kicker: 'tu plan', title: 'Tu plan de estudio', sub: 'Revisalo antes de confirmar.' },
 ]
 
 const DAYS = [1, 3, 5, 7, 10, 14, 21, 30]
@@ -36,15 +36,16 @@ const endFromDays = (n) => toISO(addDays(new Date(), n - 1))
 const listar = (xs) => xs.length > 1 ? `${xs.slice(0, -1).join(', ')} y ${xs.at(-1)}` : xs[0]
 
 export default function NuevoPlan() {
+  const { user } = useAuth()
   const [step, setStep] = useState(0)
   const [showError, setShowError] = useState(false)
   const [form, setForm] = useState({
     subject: MATERIA, topic: '', days: 7, start_date: toISO(new Date()), end_date: endFromDays(7),
-    weekdays: ALL_WEEKDAYS, level: null, target_grade: null, language: null, files: [],
+    // Lenguaje por defecto, de Configuración (HU-002, CA4): se puede cambiar acá y en cada paso.
+    weekdays: ALL_WEEKDAYS, level: null, target_grade: null, language: user?.preferred_language ?? null, files: [],
   })
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
   const headingRef = useRef(null)
-  usePaperTheme() // mismo papel claro que la portada y el ingreso
   useEffect(() => { headingRef.current?.focus({ preventScroll: true }); window.scrollTo({ top: 0, behavior: 'smooth' }) }, [step])
 
   const faltan = [
@@ -97,6 +98,9 @@ export default function NuevoPlan() {
 
 function StepObjetivo({ form, set, error, onNext }) {
   const [open, setOpen] = useState('tema')
+  // Temas con un plan activo: no se pueden repetir (cada tema tiene un solo objetivo a la vez).
+  const [taken, setTaken] = useState([])
+  useEffect(() => { api('/plans').then((ps) => setTaken(ps.filter((p) => p.status === 'activo').map((p) => p.topic))).catch(() => {}) }, [])
   const llegada = form.days === 1 ? 'hoy' : `el ${longDate(parseDay(form.end_date)).replace(',', '')}`
   const sessions = Math.max(3, form.days)
 
@@ -109,8 +113,8 @@ function StepObjetivo({ form, set, error, onNext }) {
         <Fila id="tema" label="Tema" value={form.topic} open={open} setOpen={setOpen}>
           <div role="radiogroup" aria-label="Tema" className="grid gap-1.5 sm:grid-cols-2">
             {TOPICS.map((t) => (
-              <Opcion key={t.value} checked={form.topic === t.value} title={t.value} desc={t.desc}
-                onClick={() => paso('dias')({ topic: t.value })} />
+              <Opcion key={t.value} checked={form.topic === t.value} title={t.value} disabled={taken.includes(t.value)}
+                desc={taken.includes(t.value) ? 'Ya lo estás estudiando' : t.desc} onClick={() => paso('dias')({ topic: t.value })} />
             ))}
           </div>
         </Fila>
@@ -152,11 +156,11 @@ function StepObjetivo({ form, set, error, onNext }) {
 }
 
 // Opción con título y aclaración (tema, nivel). Se comporta como un radio.
-function Opcion({ checked, title, desc, onClick }) {
+function Opcion({ checked, title, desc, onClick, disabled = false }) {
   return (
-    <button type="button" role="radio" aria-checked={checked} onClick={onClick}
-      className={`grid cursor-pointer gap-0.5 rounded-xl border px-4 py-3 text-left transition ${checked
-        ? 'border-violet/60 bg-[color-mix(in_srgb,var(--violet)_12%,transparent)]' : 'border-line hover:border-violet/40'}`}>
+    <button type="button" role="radio" aria-checked={checked} onClick={onClick} disabled={disabled}
+      className={`grid gap-0.5 rounded-xl border px-4 py-3 text-left transition ${disabled ? 'cursor-not-allowed border-line opacity-55'
+        : checked ? 'cursor-pointer border-violet/60 bg-[color-mix(in_srgb,var(--violet)_12%,transparent)]' : 'cursor-pointer border-line hover:border-violet/40'}`}>
       <span className="text-sm font-medium">{title}</span>
       <span className="text-xs text-muted">{desc}</span>
     </button>
@@ -221,9 +225,9 @@ function Fila({ id, label, value, open, setOpen, children }) {
 /* ---------------- Paso 2: material y lenguaje ---------------- */
 
 const POR_QUE = [
-  ['Por qué conviene sumarlo', 'Las explicaciones, preguntas y ejercicios se arman sobre lo que da tu cátedra: los mismos temas, el mismo enfoque y el mismo lenguaje.'],
-  ['Qué podés subir', 'Apuntes de clase, guías de ejercicios, resúmenes o parciales anteriores.'],
-  ['¿No tenés material?', 'No pasa nada. Cada tema ya tiene fuentes académicas cargadas y trabajamos con esas.'],
+  ['Por qué sumarlo', 'Todo sale de lo que da tu cátedra.'],
+  ['Qué subir', 'Apuntes, guías o parciales.'],
+  ['¿Sin material?', 'Usamos las fuentes académicas del tema.'],
 ]
 
 function StepMaterial({ form, set, error, onBack, onNext }) {
@@ -338,7 +342,7 @@ function StepPlan({ form, goTo }) {
       }
       setPhase(2); await new Promise((r) => setTimeout(r, 700))
       setPhase(3); await new Promise((r) => setTimeout(r, 500))
-      navigate('/app', { state: { created: true, failedUploads: failed } })
+      navigate('/app', { state: { created: true, failedUploads: failed, planId: plan.id } })
     } catch (e) { setError(e.message); setPhase(-1) }
   }
 

@@ -8,7 +8,10 @@ MAX_DAYS = 180
 
 
 class GoogleLoginIn(BaseModel):
-    credential: str = Field(min_length=20)
+    access_token: str = Field(min_length=20)  # el que devuelve el popup de Google
+
+
+LANGUAGES = Literal["python", "java", "c", "cpp", "javascript"]
 
 
 class UserOut(BaseModel):
@@ -16,14 +19,20 @@ class UserOut(BaseModel):
     email: str
     name: str
     picture: str | None
+    # HU-001: sin objetivo de estudio va a la configuración (CA1); con objetivo, al panel (CA2).
+    has_plan: bool = False
+    preferred_language: LANGUAGES | None = None  # precompleta el lenguaje al armar un objetivo nuevo
+
+
+class PreferenciasIn(BaseModel):
+    preferred_language: LANGUAGES | None = None
 
 
 class PlanIn(BaseModel):
-    subject: str = Field(min_length=2, max_length=120)
-    topic: str = Field(min_length=2, max_length=120)
+    """Datos del objetivo de estudio (HU-002). Se guardan en objetivo_estudio; ver routers/plans.py."""
+    topic: str = Field(min_length=2, max_length=120)  # nombre de uno de los temas cargados
     # Lenguaje de los ejemplos y ejercicios. "material": se toma del material de la cátedra (HU-002, CA4).
     language: Literal["python", "java", "c", "cpp", "javascript", "material"]
-    goal: Literal["examen", "aprender"] = "examen"
     start_date: date
     end_date: date
     weekdays: list[int] = Field(min_length=1, max_length=7)
@@ -31,10 +40,6 @@ class PlanIn(BaseModel):
     target_grade: int = Field(ge=6, le=10)
     # No se pide al configurar (no forma parte de HU-002): estima la duración de cada sesión.
     minutes_per_session: Literal[20, 45, 60, 90] = 45
-    # Preferencias con valor por defecto: se eligen dentro de cada módulo, no al configurar el objetivo.
-    preferred_time: Literal["manana", "tarde", "noche"] = "tarde"
-    learn_format: Literal["resumen", "preguntas", "ejercicio", "variar"] = "variar"
-    hint_level: Literal["minimas", "normales"] = "minimas"
 
     @field_validator("weekdays")
     @classmethod
@@ -43,7 +48,7 @@ class PlanIn(BaseModel):
             raise ValueError("Los días van de 0 (lunes) a 6 (domingo)")
         return sorted(set(v))
 
-    @field_validator("subject", "topic")
+    @field_validator("topic")
     @classmethod
     def sin_espacios_extra(cls, v: str) -> str:
         return " ".join(v.split())

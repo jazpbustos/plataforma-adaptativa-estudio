@@ -1,15 +1,14 @@
-// Encabezado de cada pantalla: etiqueta mono, título en dos tonos y bajada.
-export default function PageHeader({ kicker, kickerColor, title, accent, sub, action }) {
+// Encabezado de cada pantalla: título corto (con una parte en color si hace falta) y una sola línea chica debajo.
+export default function PageHeader({ title, accent, accentColor, sub, action }) {
   return (
-    <header className="rise grid gap-3">
+    <header className="rise grid gap-1.5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        {kicker && <span className="label" style={kickerColor ? { color: kickerColor } : undefined}>{kicker}</span>}
+        <h1 className="display text-[clamp(1.7rem,3vw,2.2rem)]">
+          {title}{accent && <> <span className="accent" style={accentColor ? { color: accentColor } : undefined}>{accent}</span></>}
+        </h1>
         {action}
       </div>
-      <h1 className="display text-[clamp(1.9rem,3.6vw,2.6rem)]">
-        {title}{accent && <> <span className="accent">{accent}</span></>}
-      </h1>
-      {sub && <p className="max-w-[62ch] text-muted">{sub}</p>}
+      {sub && <p className="text-sm text-muted">{sub}</p>}
     </header>
   )
 }

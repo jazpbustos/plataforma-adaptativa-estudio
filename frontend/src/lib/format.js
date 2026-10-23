@@ -43,9 +43,5 @@ export const longDate = (d) => fmt({ weekday: 'long', day: 'numeric', month: 'lo
 export const shortDate = (d) => fmt({ day: 'numeric', month: 'short' }).format(d).replace(/\./g, '')
 export const fullDate = (d) => fmt({ day: 'numeric', month: 'long', year: 'numeric' }).format(d)
 
-export function hoursLabel(minutes) {
-  const h = Math.floor(minutes / 60), m = minutes % 60
-  return h ? `${h} h${m ? ` ${m} min` : ''}` : `${m} min`
-}
 export const kb = (bytes) => bytes > 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`
 export const firstName = (name = '') => name.split(' ')[0]

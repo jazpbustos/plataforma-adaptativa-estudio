@@ -3,13 +3,10 @@ import { useEffect, useRef, useState } from 'react'
 const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v))
 
 /*
-  Piezas del "cuaderno vivo" de la presentación (modo claro: papel crema; oscuro: papel de noche):
+  Piezas del "cuaderno vivo" de la presentación (papel crema):
   - Page: una hoja de papel con borde rasgado arriba y número de sección en el margen.
   - PageTurn: una hoja se levanta desde la esquina inferior derecha y se da vuelta hacia arriba a la izquierda, como en un libro.
-  - Clippings: recortes de diario pegados a modo de collage, de fondo.
   - CutFooter: pie de página como una hoja superpuesta con borde recortado.
-  - LiveNote / LiveArrow: anotaciones que se escriben o se borran según una condición.
-    Al entrar en pantalla se apoya sobre la anterior (efecto de pasar la página).
   - Note: anotación manuscrita que se escribe sola al aparecer.
   - Scribble: flecha o trazo a mano que se dibuja al aparecer.
   - Sketch: bocetos a lápiz (compás, órbita, red) de fondo.
@@ -25,6 +22,15 @@ export const TEAR = (() => {
   let d = 'M0 20 L0 12'
   for (let x = 0; x <= 1440; x += 6 + r() * 10) d += ` L${x.toFixed(0)} ${(5 + r() * 9 + Math.sin(x / 90) * 2).toFixed(1)}`
   return d + ' L1440 10 L1440 20 Z'
+})()
+
+// El mismo borde rasgado, en vertical: para el costado derecho del menú lateral de la app.
+export const TEAR_V = (() => {
+  let s = 11
+  const r = () => (s = (s * 16807) % 2147483647) / 2147483647
+  let d = 'M0 0 L8 0'
+  for (let y = 0; y <= 1440; y += 6 + r() * 10) d += ` L${(5 + r() * 9 + Math.sin(y / 90) * 2).toFixed(1)} ${y.toFixed(0)}`
+  return d + ' L10 1440 L0 1440 Z'
 })()
 
 function useInView(opts = '0px 0px -12% 0px') {
@@ -145,66 +151,6 @@ export function Sketch({ kind = 'compass', style, size = 120, className = '' }) 
   )
 }
 
-// ---------- Anotaciones que se prenden y se apagan desde afuera (p. ej. según la fase de una animación) ----------
-export function LiveNote({ on, children, style, rotate = -3, size = 1.5, delay = 0 }) {
-  return (
-    <p className={`nb-note ${on ? 'is-in' : ''}`}
-      style={{ ...style, fontSize: `${size}rem`, '--r': `${rotate}deg`, opacity: on ? 1 : 0, transitionProperty: 'clip-path, opacity', transitionDuration: '1.1s, .5s', transitionDelay: on ? `${delay}ms, ${delay}ms` : '0ms, 0ms' }}>
-      {children}
-    </p>
-  )
-}
-export function LiveArrow({ on, kind = 'downRight', style, scale = 1, delay = 0 }) {
-  const a = ARROWS[kind]
-  return (
-    <svg className={`nb-scribble ${on ? 'is-in' : ''}`} style={{ ...style, width: a.w * scale, height: a.h * scale, '--d': `${delay}ms`, opacity: on ? 1 : 0, transition: 'opacity .4s' }} viewBox={`0 0 ${a.w} ${a.h}`} aria-hidden="true">
-      <path d={a.d} pathLength="1" />
-      {a.h2 && <path d={a.h2} pathLength="1" className="nb-head" />}
-    </svg>
-  )
-}
-
-// ---------- Collage de recortes de diario (fondo del hero) ----------
-const CLIPS = [
-  { k: 'a', x: '36%', y: '3%', w: 280, r: 1.6, cut: 'polygon(0 2%, 99% 0, 100% 97%, 2% 100%)', body: (<>
-    <b className="nb-cl-head">EL DIARIO DEL ESTUDIANTE</b><i className="nb-cl-date">Miércoles · Nº 214</i>
-    <h5>Las ideas no viven solas</h5>
-    <p>Estudiar no es juntar páginas: es descubrir cómo se conectan entre sí los conceptos que ya tenés.</p>
-    <p>Un resumen ordenado, una pregunta a tiempo y un ejemplo concreto valen más que diez lecturas.</p></>) },
-  { k: 'b', x: '59%', y: '1%', w: 190, r: -2.4, cut: 'polygon(1% 0, 100% 3%, 98% 100%, 0 96%)', body: (<>
-    <h5>Explicar es aprender dos veces</h5>
-    <p>Al enseñar un tema aparecen los huecos que la lectura escondía.</p>
-    <p className="nb-cl-2">Por eso explicar, aun a un compañero imaginario, ordena lo que se sabe y marca lo que falta repasar.</p></>) },
-  { k: 'img', x: '89%', y: '55%', w: 135, r: 3.4, cut: 'polygon(0 0, 100% 2%, 97% 100%, 3% 97%)', body: (<>
-    <div className="nb-halftone" /><em>Fig. 1 — Una red de conceptos.</em></>) },
-  { k: 'c', x: '80%', y: '79%', w: 165, r: 2.2, cut: 'polygon(0 3%, 97% 0, 100% 98%, 2% 100%)', body: (<>
-    <b className="nb-cl-head">CLASIFICADOS</b>
-    <p><strong>SE BUSCA:</strong> resumen claro, con ejemplos.</p>
-    <p><strong>OFREZCO:</strong> media hora diaria de práctica.</p></>) },
-  { k: 'strip', x: '60%', y: '88%', w: 250, r: -1.4, cut: 'polygon(0 10%, 100% 0, 99% 100%, 1% 92%)', body: (<h5>MEMORIA Y REPASO: VOLVER ANTES DE OLVIDAR</h5>) },
-  { k: 'd', x: '41%', y: '80%', w: 215, r: -2.2, cut: 'polygon(2% 0, 100% 2%, 98% 100%, 0 97%)', body: (<>
-    <h5>Un paso a la vez</h5>
-    <p>Primero entender, después practicar, al final explicar. Cada etapa prepara a la siguiente y deja un registro del avance.</p></>) },
-  { k: 'cross', x: '2%', y: '60%', w: 118, r: 3.2, cut: 'polygon(0 0, 100% 3%, 97% 100%, 2% 98%)', body: (<>
-    <div className="nb-cross">{Array.from({ length: 25 }, (_, i) => <i key={i} className={[0, 4, 6, 12, 18, 20, 24].includes(i) ? 'is-b' : ''} />)}</div></>) },
-  { k: 'e', x: '13%', y: '82%', w: 225, r: -1.2, cut: 'polygon(0 4%, 99% 0, 100% 100%, 1% 96%)', body: (<>
-    <h5>La constancia pesa más que la intensidad</h5>
-    <p>Media hora diaria con un objetivo claro rinde más que una tarde entera sin rumbo.</p></>) },
-  { k: 'f', x: '19%', y: '-2%', w: 150, r: -2.2, cut: 'polygon(1% 0, 100% 4%, 98% 100%, 0 95%)', body: (<>
-    <b className="nb-cl-head">ÚLTIMA HORA</b><p>Nueva forma de estudiar con material propio.</p></>) },
-]
-export function Clippings() {
-  return (
-    <div aria-hidden="true" className="nb-clippings">
-      {CLIPS.map((c) => (
-        <div key={c.k} className="nb-clip-wrap" style={{ left: c.x, top: c.y, width: c.w, transform: `rotate(${c.r}deg)` }}>
-          <div className={`nb-clip nb-clip-${c.k}`} style={{ clipPath: c.cut }}>{c.body}</div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
 // ---------- Pie de página como hoja superpuesta con borde recortado (tijera "dentada") ----------
 const CUT = (() => {
   const pts = []
@@ -217,32 +163,6 @@ export function CutFooter({ children }) {
     <div className="nb-cut">
       <svg className="nb-cuttear" viewBox="0 0 1440 20" preserveAspectRatio="none" aria-hidden="true"><path d={TEAR} /></svg>
       <div className="nb-cutpaper">{children}</div>
-    </div>
-  )
-}
-
-// Texto suelto y sutil de fondo: fragmentos de apuntes, código y preguntas
-const LOOSE = [
-  ['h', 'apunte.pdf', 66, 11, 2.0, -5, 0],
-  ['m', 'def conectar(ideas):', 80, 24, .8, 2, 250],
-  ['h', 'ejercicio.py', 68, 34, 1.9, 3, 500],
-  ['m', '¿por qué funciona?', 86, 43, .78, -2, 150],
-  ['h', 'chat con IA', 70, 52, 2.0, -3, 700],
-  ['m', 'for nodo in grafo:', 58, 62, .78, 2, 400],
-  ['h', 'repasar →', 88, 70, 1.8, 4, 900],
-  ['m', 'caso base + paso recursivo', 62, 78, .76, -1, 600],
-  ['h', 'explicalo con tus palabras', 60, 86, 1.7, -3, 1000],
-  ['m', 'resumen · clase 04', 92, 5, .72, 1, 300],
-  ['m', 'return dominio == 100', 42, 94, .74, -2, 800],
-  ['h', 'un tema, un paso', 80, 92, 1.6, 2, 1100],
-]
-export function LooseText() {
-  const [ref, inView] = useInView('0px')
-  return (
-    <div ref={ref} aria-hidden="true" className={`nb-loose ${inView ? 'is-in' : ''}`}>
-      {LOOSE.map(([k, t, x, y, sz, r, d]) => (
-        <span key={t} className={k} style={{ left: `${x}%`, top: `${y}%`, fontSize: `${sz}rem`, '--r': `${r}deg`, '--d': `${d}ms` }}>{t}</span>
-      ))}
     </div>
   )
 }

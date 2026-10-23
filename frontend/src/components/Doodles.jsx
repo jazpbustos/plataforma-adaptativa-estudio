@@ -11,7 +11,6 @@ export const DocDoodle = (p) => (
     <path d="M26 14c10-2 26-1 36 0l14 14c1 12 0 38-1 56-14 2-36 1-50 0-1-22-1-48 1-70z" fill="var(--doodle-fill)" />
     <path d="M62 14c0 6-1 11 1 14 4 1 9 0 13 0" />
     <path d="M34 44c8-1 22 0 32-1M34 56c10 1 20-1 32 0M34 68c6 0 14 1 20 0" />
-    <path d="M80 20l2 6m4-9l-3 5m5 1l-6-1" strokeWidth="2.4" />
   </Doodle>
 )
 export const CodeDoodle = (p) => (
@@ -28,14 +27,12 @@ export const QuizDoodle = (p) => (
     <path d="M32 38h8v8h-8zM32 54h8v8h-8zM32 70h8v8h-8z" strokeWidth="2.6" />
     <path d="M33 42l3 3 6-8M33 58l3 3 6-8" strokeWidth="3.2" />
     <path d="M48 42h20M48 58h20M48 74h14" strokeWidth="2.8" />
-    <path d="M80 20l2 6m4-9l-3 5m5 1l-6-1" strokeWidth="2.4" />
   </Doodle>
 )
 export const ChatDoodle = (p) => (
   <Doodle {...p}>
     <path d="M16 22c20-4 48-3 68 0 3 14 3 28 0 40-12 2-24 1-34 2L32 82V64c-6 0-12-1-16-2-3-13-3-26 0-40z" fill="var(--doodle-fill)" />
     <path d="M36 44h.01M50 44h.01M64 44h.01" strokeWidth="6" />
-    <path d="M78 10l2 7m5-10l-3 6m7 1l-7-1" strokeWidth="2.4" />
   </Doodle>
 )
 export const BulbDoodle = (p) => (
@@ -59,7 +56,6 @@ export const SmileDoodle = (p) => (
     <path d="M50 14c20 0 36 15 36 36S72 86 50 86 14 71 14 50s15-36 36-36z" fill="var(--doodle-fill)" />
     <path d="M38 42h.01M62 42h.01" strokeWidth="6" />
     <path d="M33 58c7 12 27 12 34 0" />
-    <path d="M84 12l2 7m5-10l-3 6m7 1l-7-1" strokeWidth="2.4" />
   </Doodle>
 )
 export const FootDoodle = (p) => (
@@ -75,7 +71,6 @@ export const FlagDoodle = (p) => (
     <path d="M30 90V14" />
     <path d="M30 16c14-7 24 7 42 0v34c-18 7-28-7-42 0z" fill="var(--doodle-fill)" />
     <path d="M20 90h24" />
-    <path d="M80 14l2 6m4-9l-3 5" strokeWidth="2.4" />
   </Doodle>
 )
 export const MedalDoodle = (p) => (
@@ -83,7 +78,6 @@ export const MedalDoodle = (p) => (
     <path d="M32 10l12 26M68 10L56 36" />
     <path d="M50 34c15 0 26 11 26 25S65 85 50 85 24 73 24 59s11-25 26-25z" fill="var(--doodle-fill)" />
     <path d="M50 46l4 8 9 1-6.5 6 1.8 9-8.3-4.4L41.7 70l1.8-9-6.5-6 9-1z" strokeWidth="2.6" />
-    <path d="M82 22l2 6m5-9l-3 5" strokeWidth="2.4" />
   </Doodle>
 )
 export const CalendarDoodle = (p) => (
@@ -93,7 +87,6 @@ export const CalendarDoodle = (p) => (
     <path d="M34 17v15M66 17v15" />
     <path d="M28 52h.01M42 52h.01M56 52h.01M70 52h.01M28 66h.01M42 66h.01M28 78h.01M42 78h.01M70 78h.01" strokeWidth="5" />
     <path d="M51 59c4-3 12-2 13 4 1 6-4 10-9 9-5 0-8-4-7-8 0-2 2-4 4-5" strokeWidth="2.8" />
-    <path d="M86 12l2 6m5-9l-3 5m6 2l-6-1" strokeWidth="2.4" />
   </Doodle>
 )
 /* Hoja corregida con la nota encerrada, como la marca un docente */
@@ -105,7 +98,6 @@ export const GradeDoodle = (p) => (
     <path d="M41 56l5-4v25" strokeWidth="3.6" />
     <path d="M60 52c5 0 8 6 8 13s-3 12-8 12-8-6-8-12 3-13 8-13z" strokeWidth="3.6" />
     <path d="M33 66c-1-12 12-20 28-19 15 1 26 9 25 19-1 11-15 18-30 17-13-1-24-7-24-16 0-6 4-10 10-13" strokeWidth="2.4" />
-    <path d="M86 40l3 5m4-9l-3 5m6 2l-6-1" strokeWidth="2.4" />
   </Doodle>
 )
 /* Garabato flotante con aclaración manuscrita opcional */

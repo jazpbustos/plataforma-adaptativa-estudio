@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     cookie_secure: bool = False
     upload_dir: str = "./uploads"
     max_upload_mb: int = 10
+    chroma_dir: str = "./chroma"  # base vectorial (ChromaDB) con los fragmentos del material
+    embedding_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 
 
 settings = Settings()

@@ -22,7 +22,7 @@ export default function BrainStory({ mastery = 100, decor = null }) {
   const [ch, setCh] = useState(0)
 
   useEffect(() => {
-    const story = storyRef.current, cv = canvasRef.current, ctx = cv.getContext('2d'), root = document.documentElement
+    const story = storyRef.current, cv = canvasRef.current, ctx = cv.getContext('2d'), root = document.documentElement // root: solo para leer los tokens de color
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
     const B = build(), N = B.N, rr = mulberry(21)
     // región de cada partícula: 1 Aprender (frente), 2 Practicar (centro), 3 Explicar (lóbulo temporal), 4 el resto
@@ -42,9 +42,9 @@ export default function BrainStory({ mastery = 100, decor = null }) {
     const readColors = () => {
       const css = (n) => getComputedStyle(root).getPropertyValue(n)
       C = { p1: hex(css('--p1')), p2: hex(css('--p2')), p3: hex(css('--p3')), blue: hex(css('--blue')), green: hex(css('--green')), pink: hex(css('--pink')),
-        violet: hex(css('--violet')), dark: getComputedStyle(root).colorScheme === 'dark' }
-      C.ink = C.dark ? [214, 200, 255] : [74, 38, 150]
-      C.dim = C.dark ? [150, 136, 200] : [112, 90, 176]
+        violet: hex(css('--violet')) }
+      C.ink = [74, 38, 150]
+      C.dim = [112, 90, 176]
     }
     const layout = () => {
       const dpr = Math.min(devicePixelRatio || 1, 2)
@@ -98,7 +98,7 @@ export default function BrainStory({ mastery = 100, decor = null }) {
         const facing = nz
         if (facing < -.08 && k >= 1) { bk[i] = -1; continue }
         const diff = Math.max(0, nx * L[0] + ny * L[1] + nz * L[2]), rim = Math.pow(1 - Math.max(0, facing), 2)
-        const tone = C.dark ? clamp(diff * 1.05 + .06 - B.g[i] * .25 + rim * .25) : clamp(1 - diff * 1.05 + rim * .45 + B.g[i] * .55)
+        const tone = clamp(1 - diff * 1.05 + rim * .45 + B.g[i] * .55)
         const act = c >= 1 && c <= 3 ? (reg[i] === c ? 1.15 : .5) : 1
         const vis2 = clamp((tone * 1.2 + .12 - B.r[i] * .95) * 4.5) * clamp((facing + .08) * 5) * Math.min(1, k * 3) * (.72 + .28 * clamp((pz + 1) / 1.6)) * act
         if (vis2 < .06) { bk[i] = -1; continue }
@@ -123,15 +123,13 @@ export default function BrainStory({ mastery = 100, decor = null }) {
     const onUp = () => { drag = null }
     const onLeave = () => { hover.x = hover.y = 0 }
     const ro = new ResizeObserver(layout)
-    const mo = new MutationObserver(() => requestAnimationFrame(readColors))
-    const mq = matchMedia('(prefers-color-scheme: dark)')
 
     readColors(); layout()
-    ro.observe(cv); mo.observe(root, { attributes: true, attributeFilter: ['data-theme'] }); mq.addEventListener('change', readColors)
+    ro.observe(cv)
     cv.addEventListener('pointerdown', onDown); cv.addEventListener('pointermove', onMove); cv.addEventListener('pointerup', onUp); cv.addEventListener('pointercancel', onUp); cv.addEventListener('pointerleave', onLeave)
     raf = requestAnimationFrame(frame)
     return () => {
-      cancelAnimationFrame(raf); ro.disconnect(); mo.disconnect(); mq.removeEventListener('change', readColors)
+      cancelAnimationFrame(raf); ro.disconnect()
       cv.removeEventListener('pointerdown', onDown); cv.removeEventListener('pointermove', onMove); cv.removeEventListener('pointerup', onUp); cv.removeEventListener('pointercancel', onUp); cv.removeEventListener('pointerleave', onLeave)
     }
   }, [mastery])

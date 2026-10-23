@@ -1,45 +1,49 @@
 import { Link } from 'react-router-dom'
 import { MODULES } from '../lib/format.js'
-import { IconCheck, IconLock } from './Icons.jsx'
+import { IconLock } from './Icons.jsx'
 
 /*
-  "Tu recorrido": los tres módulos como tarjetas.
-  Cada una lleva su neurona: encendida (hecha), con halo (actual) o punteada con candado (bloqueada).
-  Una línea con gradiente las conecta, como en la identidad visual.
+  "Tu recorrido": los tres módulos en fila, unidos por una línea con gradiente.
+  El estado de cada uno se marca a mano (subrayado en el actual, tilde en los hechos),
+  igual que el subrayado/tilde del selector de temas — no con un ícono geométrico,
+  para no romper la estética de cuaderno.
 */
+const Subrayado = () => (
+  <svg className="rc-underline" viewBox="0 0 120 10" preserveAspectRatio="none" aria-hidden="true"><path d="M2 6C20 2 40 9 60 5S100 3 118 6" /></svg>
+)
+const Tilde = () => (
+  <svg className="rc-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13c2.5 2 4 4 5 6 3-6 6-10 11-14" /></svg>
+)
+
 export default function RouteChain({ byModule, current }) {
   const keys = Object.keys(MODULES)
   const idx = keys.indexOf(current)
 
   return (
     <div className="relative">
-      <span aria-hidden="true" className="absolute top-[34px] right-[16%] left-[16%] hidden h-px md:block"
+      <span aria-hidden="true" className="absolute top-[22px] right-[16%] left-[16%] hidden h-px md:block"
         style={{ background: 'linear-gradient(90deg, var(--blue), var(--green) 50%, var(--pink))', opacity: .35 }} />
       <ol className="relative grid gap-3 md:grid-cols-3">
         {keys.map((k, i) => {
           const m = MODULES[k], s = byModule?.[k] ?? { done: 0, total: 0 }
           const state = s.total && s.done === s.total ? 'done' : i === idx ? 'now' : i < idx ? 'done' : 'locked'
-          const status = state === 'done' ? `Completo · ${s.total} sesiones`
-            : state === 'now' ? `${s.done} de ${s.total} sesiones · Continuar ↗`
-            : i === idx + 1 ? `Disponible al terminar ${MODULES[keys[i - 1]].label}` : 'Se desbloquea más adelante'
+          const status = state === 'done' ? 'Completo'
+            : state === 'now' ? `${s.done} de ${s.total} · Continuar →`
+            : 'Bloqueado'
           return (
-            <li key={k} className="card grid content-start gap-3 p-5" style={{ '--c': m.color }}>
-              <div className="flex items-center justify-between">
-                <span className={`relative grid size-7 place-items-center rounded-full border-[1.5px] font-mono text-[.68rem] ${
-                  state === 'done' ? 'border-[var(--c)] bg-[var(--c)] text-bg'
-                  : state === 'now' ? 'halo border-[var(--c)] bg-card text-[var(--c)]'
-                  : 'border-dashed border-rule bg-card text-muted'}`}>
-                  {state === 'done' ? <IconCheck className="size-3.5" /> : state === 'locked' ? <IconLock className="size-3.5" /> : i + 1}
-                </span>
-                <span className="font-mono text-[.68rem] tracking-wider uppercase" style={{ color: m.color }}>{m.n} / {m.label}</span>
+            <li key={k} className="card grid content-start gap-2 p-5" style={{ '--c': m.color }}>
+              <div className="flex items-center gap-1.5 text-xs text-muted">
+                {state === 'done' && <Tilde />}
+                {state === 'locked' && <IconLock className="size-3.5" />}
+                <span>{state === 'now' ? 'Estás acá' : state === 'done' ? 'Listo' : 'Todavía no'}</span>
               </div>
-              <div>
-                <h3 className="text-[1.2rem] font-medium tracking-[-.02em]">{m.verb}</h3>
-                <p className="text-sm text-muted">{m.desc}</p>
-              </div>
+              <h3 className="relative inline-block self-start text-[1.1rem] font-medium tracking-[-.02em]">
+                {m.label}
+                {state === 'now' && <Subrayado />}
+              </h3>
               {state === 'now'
                 ? <Link to={m.path} className="text-sm font-medium" style={{ color: m.color }}>{status}</Link>
-                : <span className="text-sm font-medium" style={{ color: state === 'locked' && i !== idx + 1 ? m.color : m.color, opacity: state === 'locked' ? .85 : 1 }}>{status}</span>}
+                : <span className="text-sm text-muted">{status}</span>}
             </li>
           )
         })}

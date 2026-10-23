@@ -1,6 +1,7 @@
 import { Link, useOutletContext } from 'react-router-dom'
 import PageHeader from '../components/PageHeader.jsx'
 import Synapse from '../components/Synapse.jsx'
+import TopicSwitch from '../components/TopicSwitch.jsx'
 import { MODULES, WEEKDAYS, parseDay } from '../lib/format.js'
 
 function Stat({ label, value, sub }) {
@@ -14,13 +15,12 @@ function Stat({ label, value, sub }) {
 }
 
 export default function Progreso() {
-  const { data } = useOutletContext()
+  const { data, plan, selectPlan } = useOutletContext()
   if (!data) return <Synapse>Cargando</Synapse>
-  const plan = data.plans[0]
 
   if (!plan) return (
     <div className="grid gap-8">
-      <PageHeader kicker="Mi avance" title="Acá vas a ver" accent="cómo toma forma." sub="Cuando tengas una ruta, este panel muestra tu dominio, tus sesiones y tu semana." />
+      <PageHeader title="Progreso" sub="Cuando tengas un plan, acá vas a ver tu dominio y tus sesiones." />
       <div><Link to="/empezar" className="btn btn-primary">Configurar objetivo <span className="arrow">→</span></Link></div>
     </div>
   )
@@ -30,11 +30,12 @@ export default function Progreso() {
 
   return (
     <div className="grid gap-8">
-      <PageHeader kicker={`Mi avance / ${plan.topic}`} title="Así va" accent="tomando forma." sub="Tu dominio del tema, cuánto avanzaste en cada módulo y cómo viene la semana." />
+      <PageHeader title="Progreso" sub="Dominio, sesiones y semana de cada tema." />
+      <TopicSwitch plans={data.plans} current={plan} onSelect={selectPlan} />
 
       <section className="grid gap-3 sm:grid-cols-3">
-        <Stat label="Dominio del tema" value={<span className="accent">{plan.mastery} %</span>} sub="Se calcula con los tres módulos" />
-        <Stat label="Sesiones completadas" value={`${plan.sessions_done} / ${plan.sessions_total}`} sub="En esta ruta" />
+        <Stat label="Dominio del tema" value={<span className="accent">{plan.mastery} %</span>} sub={plan.required_mastery ? `Meta: ${plan.required_mastery} % para tu ${plan.target_grade}` : 'Se calcula con los tres módulos'} />
+        <Stat label="Sesiones completadas" value={`${plan.sessions_done} / ${plan.sessions_total}`} sub="En este plan" />
         <Stat label="Fecha objetivo" value={plan.days_left >= 0 ? `${plan.days_left} días` : 'Vencida'} sub={plan.days_left >= 0 ? 'Para llegar' : 'Podés ajustar la fecha'} />
       </section>
 
@@ -69,7 +70,7 @@ export default function Progreso() {
             return (
               <div key={k} className="grid gap-1.5" title={`${m.label}: ${s.done} de ${s.total} sesiones`}>
                 <div className="flex justify-between text-sm"><span className="flex items-center gap-2"><i className="size-2 rounded-full" style={{ background: m.color }} />{m.label}</span>
-                  <span className="font-mono text-xs text-muted tabular-nums">{s.done}/{s.total} · {pct} %</span></div>
+                  <span className="text-xs text-muted tabular-nums">{s.done}/{s.total} · {pct} %</span></div>
                 <div className="h-1.5 overflow-hidden rounded-full bg-elev"><i className="block h-full rounded-full" style={{ width: `${pct}%`, background: m.color }} /></div>
               </div>
             )
