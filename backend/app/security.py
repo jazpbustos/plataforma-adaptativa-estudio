@@ -14,7 +14,7 @@ from sqlmodel import Session
 
 from .config import settings
 from .db import get_session
-from .models import Estudiante
+from .models import ROL_ADMIN, ROL_ESTUDIANTE, Estudiante
 
 COOKIE_NAME = "session"
 ALGORITHM = "HS256"
@@ -50,16 +50,18 @@ def verify_google_access_token(access_token: str) -> dict:
     return cuenta
 
 
-def create_token(id_estudiante: int) -> str:
+def create_token(id_estudiante: int, rol: str = ROL_ESTUDIANTE) -> str:
+    """JWT propio con validez de ocho horas (Seguridad). Lleva la identidad y el rol del usuario."""
     now = datetime.now(timezone.utc)
-    payload = {"sub": str(id_estudiante), "iat": now, "exp": now + timedelta(minutes=settings.jwt_expire_minutes)}
+    payload = {"sub": str(id_estudiante), "rol": rol, "iat": now,
+               "exp": now + timedelta(minutes=settings.jwt_expire_minutes)}
     return jwt.encode(payload, settings.jwt_secret, algorithm=ALGORITHM)
 
 
-def set_session_cookie(response: Response, id_estudiante: int) -> None:
+def set_session_cookie(response: Response, est: Estudiante) -> None:
     response.set_cookie(
         COOKIE_NAME,
-        create_token(id_estudiante),
+        create_token(est.id_estudiante, est.rol),
         max_age=settings.jwt_expire_minutes * 60,
         httponly=True,
         secure=settings.cookie_secure,
@@ -86,4 +88,15 @@ def current_user(
         raise unauthorized
     if not user:
         raise unauthorized
+    return user
+
+
+def solo_administrador(user: Estudiante = Depends(current_user)) -> Estudiante:
+    """Opciones reservadas al administrador (Tabla de niveles de acceso): temas, fuentes, ejercicios y roles.
+
+    El rol se toma de la base, no de un parámetro del navegador: si se le quitó el rol a alguien, deja de
+    valer aunque su token todavía no haya vencido.
+    """
+    if user.rol != ROL_ADMIN:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Esta opción es solo para administradores")
     return user

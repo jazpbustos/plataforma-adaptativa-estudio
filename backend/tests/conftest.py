@@ -5,6 +5,7 @@ os.environ.update(DATABASE_URL="sqlite:///./test.db", DEV_LOGIN="true", UPLOAD_D
                   CHROMA_DIR="./test_chroma")
 
 import hashlib
+import io
 import math
 import re
 
@@ -27,6 +28,4 @@ def embedding_falso(textos):
 def sin_modelo_real(monkeypatch):
     from app.services import rag
     monkeypatch.setattr(rag, "embedder", embedding_falso)
-    col = rag.almacen()
-    if ids := col.get()["ids"]:
-        col.delete(ids=ids)
+    rag.vaciar()

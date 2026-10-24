@@ -11,7 +11,7 @@ export const MODULES = {
 // El alumno elige el tema dentro de ella, no la materia. Cuando se confirme cuál es, se cambia solo esta constante.
 export const MATERIA = 'Materia de programación'
 
-export const WEEKDAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+export const WEEKDAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'] // etiquetas de la semana en Progreso
 // Nivel inicial declarado por el estudiante (diccionario de datos: OBJETIVO_ESTUDIO.nivel_inicial).
 export const LEVELS = {
   principiante: { label: 'Principiante', desc: 'Es la primera vez que lo veo o lo vi muy por arriba.' },
@@ -19,19 +19,24 @@ export const LEVELS = {
   avanzado: { label: 'Avanzado', desc: 'Resuelvo ejercicios; quiero afianzarlo y no trabarme.' },
 }
 
-// Contenidos del alcance del prototipo (Entrega 2, Alcances).
+// Contenidos del alcance del prototipo (Entrega 3, Alcances y Pantalla 1).
 export const TOPICS = [
   { value: 'Sintaxis y estructuras de control', desc: 'Variables, condicionales y bucles' },
-  { value: 'Arreglos, pilas y colas', desc: 'Estructuras de datos lineales' },
+  { value: 'Estructuras de datos lineales', desc: 'Arreglos, pilas y colas' },
   { value: 'Recursividad', desc: 'Funciones que se llaman a sí mismas' },
   { value: 'Búsqueda y ordenamiento', desc: 'Un algoritmo de cada uno' },
 ]
 
-// Lenguaje de los ejemplos y ejercicios. "material": se toma del material de la cátedra (HU-002, CA4).
-export const LANGUAGES = { python: 'Python', java: 'Java', c: 'C', cpp: 'C++', javascript: 'JavaScript', material: 'El de mi material' }
+// Lenguaje de los ejemplos y ejercicios: Java o Python, obligatorio (Alcances; HU-002, CA4).
+export const LANGUAGES = { java: 'Java', python: 'Python' }
 
-// Dominio requerido según la nota objetivo (HU-002, CA2). Misma regla que el backend.
+// Reglas de HU-002 (las mismas de backend/parametros.toml; el backend vuelve a validarlas).
+export const DAYS_MIN = 1, DAYS_MAX = 14
+// CA2: dominio requerido según la nota objetivo.
 export const requiredMastery = (grade) => (grade <= 7 ? 60 : grade <= 9 ? 80 : 90)
+// CA6: días mínimos que necesita cada nota, y la nota más alta que entra en una cantidad de días.
+export const minDays = (grade) => (grade <= 7 ? 3 : grade <= 9 ? 4 : 5)
+export const maxGradeFor = (days) => (days >= 5 ? 10 : days >= 4 ? 9 : days >= 3 ? 7 : null)
 
 // Las fechas llegan como "2026-09-21": las parseamos como fecha local, no UTC.
 export const parseDay = (s) => { const [y, m, d] = String(s).slice(0, 10).split('-').map(Number); return new Date(y, m - 1, d) }

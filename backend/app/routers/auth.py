@@ -11,7 +11,8 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 def upsert_estudiante(db: Session, id_google: str, correo: str, nombre: str, foto: str | None) -> Estudiante:
-    """Primer ingreso: crea el perfil (HU-001, CA1). Ingresos siguientes: actualiza nombre, correo y foto."""
+    """Primer ingreso: crea el perfil con el rol de estudiante (HU-001, CA1). Ingresos siguientes: actualiza
+    nombre, correo y foto, sin tocar el rol."""
     est = db.exec(select(Estudiante).where(Estudiante.id_google == id_google)).first()
     if est:
         est.correo_electronico, est.nombre, est.foto_url = correo, nombre, foto
@@ -25,8 +26,9 @@ def upsert_estudiante(db: Session, id_google: str, correo: str, nombre: str, fot
 
 def user_out(db: Session, est: Estudiante) -> UserOut:
     tiene_objetivo = db.exec(select(ObjetivoEstudio.id_objetivo).where(ObjetivoEstudio.id_estudiante == est.id_estudiante)).first() is not None
+    lenguaje = est.lenguaje_preferido if est.lenguaje_preferido in ("java", "python") else None
     return UserOut(id=est.id_estudiante, email=est.correo_electronico, name=est.nombre, picture=est.foto_url,
-                   has_plan=tiene_objetivo, preferred_language=est.lenguaje_preferido)
+                   role=est.rol, has_plan=tiene_objetivo, preferred_language=lenguaje)
 
 
 @router.get("/config")
@@ -39,7 +41,7 @@ def auth_config():
 def login_google(body: GoogleLoginIn, response: Response, db: Session = Depends(get_session)):
     info = verify_google_access_token(body.access_token)
     user = upsert_estudiante(db, info["sub"], info["email"], info.get("name") or info["email"], info.get("picture"))
-    set_session_cookie(response, user.id_estudiante)
+    set_session_cookie(response, user)
     return user_out(db, user)
 
 
@@ -49,7 +51,7 @@ def login_dev(response: Response, db: Session = Depends(get_session)):
     if not settings.dev_login:
         raise HTTPException(status.HTTP_404_NOT_FOUND)
     user = upsert_estudiante(db, "dev-user", "demo@plataforma.local", "Usuario Demo", None)
-    set_session_cookie(response, user.id_estudiante)
+    set_session_cookie(response, user)
     return user_out(db, user)
 
 

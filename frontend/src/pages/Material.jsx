@@ -7,14 +7,17 @@ import TopicSwitch from '../components/TopicSwitch.jsx'
 import { api } from '../lib/api.js'
 import { fullDate, kb, parseDay, shortDate } from '../lib/format.js'
 
-export const ACCEPT = ['.pdf', '.docx', '.txt', '.md', '.py']
-export const MAX_MB = 10
+// Carga del material (HU-003 y Seguridad): el backend vuelve a validar todo, también el contenido real del archivo.
+export const ACCEPT = ['.pdf', '.docx', '.pptx']
+export const MAX_MB = 25
+export const MAX_FILES = 20 // por tema
 
 // Estado del procesamiento (RAG): el archivo se indexa en segundo plano después de subirlo.
 const ESTADO = {
   pendiente: ['Procesando…', 'var(--text-secondary)', 'Extrayendo el texto e indexándolo'],
   procesado: ['Listo', 'var(--green)', 'Ya se usa en tus sesiones'],
-  'con error': ['No se pudo leer', 'var(--red)', 'No encontramos texto (¿es un PDF escaneado?)'],
+  'sin texto': ['Sin texto', 'var(--red)', 'No encontramos texto: ¿es un documento escaneado o una presentación solo con imágenes?'],
+  'con error': ['No se pudo leer', 'var(--red)', 'El archivo parece dañado. Probá exportarlo de nuevo.'],
 }
 
 export default function Material() {
@@ -39,12 +42,14 @@ export default function Material() {
     if (!plan) return
     setBusy(true); setMsg('')
     const errors = []
+    let cargados = mine?.length ?? 0
     for (const f of files) {
       const ext = f.name.slice(f.name.lastIndexOf('.')).toLowerCase()
       if (!ACCEPT.includes(ext)) { errors.push(`${f.name}: formato no admitido`); continue }
       if (f.size > MAX_MB * 1024 * 1024) { errors.push(`${f.name}: supera ${MAX_MB} MB`); continue }
+      if (cargados >= MAX_FILES) { errors.push(`${f.name}: ya hay ${MAX_FILES} archivos en este tema`); continue }
       const fd = new FormData(); fd.append('file', f)
-      await api(`/plans/${plan.id}/materials`, { method: 'POST', form: fd }).catch((e) => errors.push(`${f.name}: ${e.message}`))
+      await api(`/plans/${plan.id}/materials`, { method: 'POST', form: fd }).then(() => cargados++).catch((e) => errors.push(`${f.name}: ${e.message}`))
     }
     setMsg(errors.join(' · ')); setBusy(false); load(); reload()
   }
@@ -86,7 +91,7 @@ export default function Material() {
           className="grid cursor-pointer justify-items-center gap-2 rounded-2xl border border-dashed border-rule px-6 py-12 text-center transition hover:border-violet disabled:cursor-default">
           <IconUpload className="size-6 text-violet" />
           <span className="font-medium">{plan ? `Subí apuntes de ${plan.topic}` : 'Primero armá tu plan'}</span>
-          <span className="text-xs text-muted">Opcional · {ACCEPT.join(' ').toUpperCase().replaceAll('.', '')} · hasta {MAX_MB} MB</span>
+          <span className="text-xs text-muted">Opcional · {ACCEPT.join(' ').toUpperCase().replaceAll('.', '')} · hasta {MAX_MB} MB por archivo y {MAX_FILES} por tema</span>
         </button>
       )}
 

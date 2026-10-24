@@ -7,12 +7,13 @@ import { Floaty, Kicker, GradeDoodle, CalendarDoodle, FlagDoodle, FootDoodle } f
 import { IconCheck, IconChevron, IconFile, IconUpload } from '../components/Icons.jsx'
 import Synapse from '../components/Synapse.jsx'
 import { api } from '../lib/api.js'
-import { LANGUAGES, LEVELS, MATERIA, MODULES, TOPICS, addDays, fullDate, kb, longDate, parseDay, requiredMastery, shortDate, toISO } from '../lib/format.js'
-import { ACCEPT, MAX_MB } from './Material.jsx'
+import { DAYS_MAX, DAYS_MIN, LANGUAGES, LEVELS, MATERIA, MODULES, TOPICS, addDays, fullDate, kb, longDate, maxGradeFor, minDays, parseDay, requiredMastery, shortDate, toISO } from '../lib/format.js'
+import { ACCEPT, MAX_FILES, MAX_MB } from './Material.jsx'
 
 /*
   Configuración del objetivo de estudio (HU-002) y carga del material (HU-003), en tres pasos:
-  1. Objetivo: tema, días disponibles, nivel inicial y nota objetivo → 2. Material (opcional) y lenguaje → 3. Revisar el plan.
+  1. Objetivo: tema, días disponibles (1 a 14), nivel inicial y nota objetivo → 2. Material (opcional) y lenguaje
+  (Java o Python, obligatorio) → 3. Revisar el plan. El plan arranca hoy y va día por día.
 */
 
 // Garabatos a los costados de cada paso (solo en pantallas anchas), como en el ingreso.
@@ -27,9 +28,8 @@ const STEPS = [
   { key: 'plan', kicker: 'tu plan', title: 'Tu plan de estudio', sub: 'Revisalo antes de confirmar.' },
 ]
 
-const DAYS = [1, 3, 5, 7, 10, 14, 21, 30]
+const DAYS = Array.from({ length: DAYS_MAX - DAYS_MIN + 1 }, (_, i) => DAYS_MIN + i) // HU-002, CA1 y CA5
 const GRADES = [6, 7, 8, 9, 10]
-const ALL_WEEKDAYS = [0, 1, 2, 3, 4, 5, 6]
 const endFromDays = (n) => toISO(addDays(new Date(), n - 1))
 
 // "el tema y la nota objetivo" a partir de la lista de campos que faltan (HU-002, CA3).
@@ -40,9 +40,9 @@ export default function NuevoPlan() {
   const [step, setStep] = useState(0)
   const [showError, setShowError] = useState(false)
   const [form, setForm] = useState({
-    subject: MATERIA, topic: '', days: 7, start_date: toISO(new Date()), end_date: endFromDays(7),
-    // Lenguaje por defecto, de Configuración (HU-002, CA4): se puede cambiar acá y en cada paso.
-    weekdays: ALL_WEEKDAYS, level: null, target_grade: null, language: user?.preferred_language ?? null, files: [],
+    subject: MATERIA, topic: '', days: 7, end_date: endFromDays(7),
+    // Lenguaje por defecto, de Configuración (HU-002, CA4): se puede cambiar acá y al empezar a practicar.
+    level: null, target_grade: null, language: LANGUAGES[user?.preferred_language] ? user.preferred_language : null, files: [],
   })
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
   const headingRef = useRef(null)
@@ -53,9 +53,12 @@ export default function NuevoPlan() {
     form.level === null && 'tu nivel inicial',
     form.target_grade === null && 'la nota objetivo',
   ].filter(Boolean)
+  // HU-002, CA6: con menos días de los que pide la nota, no se puede seguir (el paso ofrece las dos salidas).
+  const pocosDias = form.target_grade !== null && form.days < minDays(form.target_grade)
   const errors = [
-    faltan.length ? `Falta completar ${listar(faltan)}.` : '',
-    form.language === null ? 'Elegí el lenguaje en el que vas a practicar.' : '',
+    faltan.length ? `Falta completar ${listar(faltan)}.`
+      : pocosDias ? `Para una nota de ${form.target_grade} necesitás al menos ${minDays(form.target_grade)} días.` : '',
+    form.language === null ? 'Elegí el lenguaje en el que vas a practicar: Java o Python.' : '',
   ]
 
   const next = () => { if (errors[step]) { setShowError(true); return } setShowError(false); setStep(step + 1) }
@@ -102,7 +105,9 @@ function StepObjetivo({ form, set, error, onNext }) {
   const [taken, setTaken] = useState([])
   useEffect(() => { api('/plans').then((ps) => setTaken(ps.filter((p) => p.status === 'activo').map((p) => p.topic))).catch(() => {}) }, [])
   const llegada = form.days === 1 ? 'hoy' : `el ${longDate(parseDay(form.end_date)).replace(',', '')}`
-  const sessions = Math.max(3, form.days)
+  const minimo = form.target_grade ? minDays(form.target_grade) : null
+  const pocosDias = minimo !== null && form.days < minimo
+  const notaPosible = maxGradeFor(form.days)
 
   // Al elegir un valor se cierra el bloque y se abre el siguiente: el formulario se recorre solo.
   const paso = (next) => (patch) => { set(patch); setOpen(next) }
@@ -143,11 +148,21 @@ function StepObjetivo({ form, set, error, onNext }) {
         </Fila>
       </div>
 
+      {pocosDias && (
+        <div role="alert" className="card grid gap-3 border-l-2 !border-l-orange px-5 py-4 text-sm">
+          <p>Para una nota de <b className="font-medium">{form.target_grade}</b> necesitás al menos <b className="font-medium">{minimo} días</b>, y elegiste {form.days === 1 ? '1 día' : `${form.days} días`}.</p>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="btn btn-soft btn-sm" onClick={() => set({ days: minimo, end_date: endFromDays(minimo) })}>Usar {minimo} días</button>
+            {notaPosible && <button type="button" className="btn btn-ghost btn-sm" onClick={() => set({ target_grade: notaPosible })}>Bajar la nota a {notaPosible}</button>}
+          </div>
+        </div>
+      )}
+
       {error && <p role="alert" className="text-center text-sm text-red">{error}</p>}
       <div className="grid justify-items-center gap-3">
         <button type="button" className="btn btn-primary" onClick={onNext}>Continuar <span className="arrow">→</span></button>
         <span className="text-xs text-muted" aria-live="polite">
-          <span className="text-fg">{sessions} sesiones</span> · terminás {llegada}
+          <span className="text-fg">{form.days === 1 ? '1 día' : `${form.days} días`}</span> · terminás {llegada}
           {form.target_grade && <> · dominio requerido <span className="text-fg">{requiredMastery(form.target_grade)} %</span></>}
         </span>
       </div>
@@ -235,24 +250,20 @@ function StepMaterial({ form, set, error, onBack, onNext }) {
   const [msg, setMsg] = useState('')
   const input = useRef(null)
   const hasFiles = form.files.length > 0
-  const langs = Object.keys(LANGUAGES).filter((k) => k !== 'material' || hasFiles)
+  const langs = Object.keys(LANGUAGES)
 
   const add = (list) => {
     const ok = [], bad = []
     for (const f of list) {
       const ext = f.name.slice(f.name.lastIndexOf('.')).toLowerCase()
       if (!ACCEPT.includes(ext)) bad.push(`${f.name}: formato no admitido`)
-      else if (f.size > MAX_MB * 1024 * 1024) bad.push(`${f.name}: supera ${MAX_MB} MB`)
+      else if (form.files.length + ok.length >= MAX_FILES) bad.push(`${f.name}: el máximo es ${MAX_FILES} archivos por tema`)
       else if (!form.files.some((x) => x.name === f.name && x.size === f.size)) ok.push(f)
     }
     setMsg(bad.join(' · '))
-    // Con material, el lenguaje se toma de ahí salvo que ya se haya elegido otro (HU-002, CA4).
-    if (ok.length) set({ files: [...form.files, ...ok], language: form.language ?? 'material' })
+    if (ok.length) set({ files: [...form.files, ...ok] })
   }
-  const quitar = (f) => {
-    const files = form.files.filter((x) => x !== f)
-    set({ files, language: !files.length && form.language === 'material' ? null : form.language })
-  }
+  const quitar = (f) => set({ files: form.files.filter((x) => x !== f) })
 
   return (
     <div className="mx-auto grid w-full max-w-[920px] items-start gap-6 wide:grid-cols-[minmax(0,1fr)_280px]">
@@ -263,7 +274,7 @@ function StepMaterial({ form, set, error, onBack, onNext }) {
           <IconUpload className="mb-2 size-7 text-violet" />
           <p className="text-[1.15rem] font-medium tracking-[-.02em]">Soltá tus archivos acá</p>
           <p className="text-sm text-muted">o <button type="button" className="cursor-pointer font-medium accent hover:underline" onClick={() => input.current.click()}>elegilos desde tu compu</button></p>
-          <p className="text-xs text-muted">{ACCEPT.join(', ').toUpperCase().replaceAll('.', '')} · hasta {MAX_MB} MB por archivo</p>
+          <p className="text-xs text-muted">{ACCEPT.join(', ').toUpperCase().replaceAll('.', '')} · hasta {MAX_MB} MB por archivo y {MAX_FILES} archivos por tema</p>
           <input ref={input} type="file" multiple accept={ACCEPT.join(',')} className="hidden" onChange={(e) => { add(e.target.files); e.target.value = '' }} />
         </div>
         {msg && <p className="text-sm text-orange">{msg}</p>}
@@ -288,8 +299,7 @@ function StepMaterial({ form, set, error, onBack, onNext }) {
             ))}
           </div>
           <p className="text-xs text-muted">
-            {hasFiles ? 'Si tu material indica un lenguaje, usamos ese; si no lo indica, te lo preguntamos. ' : 'Como no subiste material, elegí uno. '}
-            Los ejercicios se escriben en este lenguaje y lo podés cambiar al empezar a practicar.
+            Los ejemplos y ejercicios se escriben en este lenguaje. En Practicar lo podés cambiar entre un ejercicio y otro.
           </p>
         </section>
       </div>
@@ -322,10 +332,9 @@ function StepPlan({ form, goTo }) {
   const [error, setError] = useState('')
   const [phase, setPhase] = useState(-1) // -1 = sin enviar
 
-  const payload = useMemo(() => {
-    const { files, days, ...rest } = form // eslint-disable-line no-unused-vars
-    return rest // `days` es solo de la interfaz: se traduce a start_date/end_date
-  }, [form])
+  // Lo que pide HU-002. La fecha de fin es solo de la interfaz: el plan arranca hoy y dura `days` días.
+  const payload = useMemo(() => ({ topic: form.topic, days: form.days, level: form.level,
+    target_grade: form.target_grade, language: form.language }), [form])
   useEffect(() => { api('/plans/preview', { method: 'POST', body: payload }).then(setPreview).catch((e) => setError(e.message)) }, [payload])
 
   const phases = ['Guardar objetivo', 'Subir material', 'Armar el plan', 'Listo']
@@ -387,7 +396,7 @@ function StepPlan({ form, goTo }) {
     <div className="mx-auto grid w-full max-w-[680px] gap-5">
       <section className="card grid gap-5 p-6">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <p className="text-[2.4rem] leading-none font-medium tracking-[-.04em] tabular-nums">{preview.total_sessions}<span className="ml-2 text-base font-normal tracking-normal text-muted">sesiones</span></p>
+          <p className="text-[2.4rem] leading-none font-medium tracking-[-.04em] tabular-nums">{preview.total_sessions}<span className="ml-2 text-base font-normal tracking-normal text-muted">{preview.total_sessions === 1 ? 'día' : 'días'}</span></p>
           <span className="text-sm text-muted">Meta: <span className="accent font-medium">{preview.required_mastery} % de dominio</span></span>
         </div>
         <div className="flex h-1.5 gap-0.5 overflow-hidden rounded-full" aria-hidden="true">

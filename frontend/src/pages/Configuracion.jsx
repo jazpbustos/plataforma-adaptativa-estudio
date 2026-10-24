@@ -4,7 +4,7 @@ import PageHeader from '../components/PageHeader.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { LANGUAGES } from '../lib/format.js'
 
-const LANGS = Object.keys(LANGUAGES).filter((k) => k !== 'material') // acá no aplica "el de mi material"
+const LANGS = Object.keys(LANGUAGES)
 
 export default function Configuracion() {
   const { user, logout, setPreferredLanguage } = useAuth()

@@ -1,0 +1,73 @@
+# Parámetros del prototipo (Entrega 3).
+#
+# Reúne en un solo archivo los valores de cada etapa del procesamiento, las reglas de diseño y la
+# versión de los modelos utilizados, para que las pruebas puedan reproducirse con los mismos
+# parámetros (Estructura de Datos). Los marcados como "valor inicial" se calibran en las pruebas
+# de cada incremento (Herramientas Metodológicas).
+
+[objetivo]                           # HU-002
+dias_min = 1
+dias_max = 14
+nota_min = 6
+nota_max = 10
+lenguajes = ["java", "python"]       # Alcances: solo Java y Python en la demostración
+# Dominio requerido según la nota objetivo (CA2) y días mínimos que necesita cada nota (CA6).
+dominio_requerido = { 6 = 60, 7 = 60, 8 = 80, 9 = 80, 10 = 90 }
+dias_minimos = { 6 = 3, 7 = 3, 8 = 4, 9 = 4, 10 = 5 }
+
+[material]                           # HU-003 y Seguridad (medidas complementarias)
+formatos = ["pdf", "docx", "pptx"]
+max_mb_por_archivo = 25
+max_archivos_por_tema = 20
+cuota_mb_por_estudiante = 200
+
+[rag]                                # Estructura de Datos: las cinco etapas del procesamiento
+tam_fragmento = 400                  # caracteres: entra completo en los 128 tokens del modelo
+solapamiento = 60
+fragmento_minimo = 30                # más corto que esto (un título suelto) no se indexa si el archivo tiene más texto
+k_por_fuente = 6                     # fragmentos más similares de cada fuente (propia y académica)
+similitud_minima = 0.5               # coseno; calibrado con consultas de la materia (valor inicial de la E3: 0,35)
+fragmentos_minimos = 2               # HU-003 CA5: con menos, el material es insuficiente
+modelo_embeddings = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+
+[llm]                                # Herramientas de Desarrollo: criterio de asignación de modelos
+modelo_contenido = "claude-sonnet-5-5"   # contenido, contraste de fuentes y evaluación de explicaciones
+modelo_pistas = "claude-haiku-5-5"       # pistas mínimas
+
+[judge0]                             # Diagrama de Arquitectura
+cpu_segundos = 5
+memoria_mb = 128
+espera_maxima_segundos = 30
+consulta_cada_segundos = 1
+reintentos = 1
+
+[detector]                           # HU-006; valores iniciales sujetos a calibración
+intentos_iguales = 3
+lineas_cambio_minimo = 2
+factor_tiempo = 2.5
+inactividad_segundos = 300           # el tiempo activo se detiene tras 5 minutos sin editar
+aviso_tiempo_segundos = 30
+
+[aprender]                           # HU-004
+preguntas = 5
+aprobacion = 0.6
+# Composición de la evaluación según el nivel inicial (CA6): básicas, intermedias y avanzadas.
+mezcla = { principiante = [3, 2, 0], intermedio = [1, 3, 1], avanzado = [0, 2, 3] }
+
+[practicar]                          # Alcances y HU-011
+ejercicios_para_aprobar = 5
+mezcla = { principiante = [2, 2, 1], intermedio = [1, 2, 2], avanzado = [0, 2, 3] }
+puntos = { sin_ayuda = 10, pista_minima = 7, explicacion_elaborada = 4 }
+
+[consolidar]                         # HU-008
+conceptos_min = 3
+conceptos_max = 5
+
+[dominio]                            # HU-010: 0,3 × A + 0,4 × P + 0,3 × C
+peso_aprender = 0.3
+peso_practicar = 0.4
+peso_consolidar = 0.3
+consolidar = { correcta = 100, incompleta = 50, incorrecta = 0 }
+
+[sesion]                             # Seguridad: acceso a la aplicación
+jwt_horas = 8

@@ -5,6 +5,6 @@ __pycache__/
 .venv/
 .pytest_cache/
 chroma/
-fuentes/
+fuentes/*/
 test_chroma/
 test_uploads/

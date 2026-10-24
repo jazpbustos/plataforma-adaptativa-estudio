@@ -1,0 +1,66 @@
+{
+  "_descripcion": "Fuentes académicas precargadas por tema (Entrega 3, Anexo 6, Tablas 30 a 32). Una sección puede llevar un tercer elemento con términos: solo se indexan las partes cuyo título los contiene. Cada fuente se registra en FUENTE_ACADEMICA con su tipo y licencia, y sus secciones se descargan, fragmentan e indexan con python -m app.fuentes. Recursividad se carga completa; los demás temas, con una base inicial.",
+  "fuentes": {
+    "F1": {"titulo": "Documentación oficial de Python, versión 3.15", "tipo": "documentación técnica oficial", "licencia": "Python Software Foundation License, versión 2"},
+    "F2": {"titulo": "Think Python, 3.ª ed. (Downey, 2023)", "tipo": "libro o apunte de acceso abierto", "licencia": "CC BY-NC-SA 4.0"},
+    "F3": {"titulo": "Think Java, 2.ª ed. (Downey y Mayfield, 2019)", "tipo": "libro o apunte de acceso abierto", "licencia": "CC BY-NC-SA 4.0"},
+    "F4": {"titulo": "Introduction to Programming Using Java, versión 9 (Eck, 2022)", "tipo": "libro o apunte de acceso abierto", "licencia": "CC BY-NC-SA 4.0"},
+    "F5": {"titulo": "Problem Solving with Algorithms and Data Structures using Python, 3.ª ed. (Miller y Ranum, 2014)", "tipo": "libro o apunte de acceso abierto", "licencia": "CC BY-NC-SA 4.0"},
+    "F7": {"titulo": "Algorithms, 1.ª ed. (Erickson, 2019)", "tipo": "libro o apunte de acceso abierto", "licencia": "CC BY 4.0"},
+    "F9": {"titulo": "Composing Programs, 3.ª ed. (DeNero, s. f.)", "tipo": "libro o apunte de acceso abierto", "licencia": "CC BY-NC-SA 4.0"},
+    "F10": {"titulo": "Structure and Interpretation of Computer Programs, 2.ª ed. (Abelson y Sussman, 1996)", "tipo": "libro o apunte de acceso abierto", "licencia": "CC BY-SA 4.0 (texto)"},
+    "F11": {"titulo": "Documentación de PostgreSQL, versión 18, sección 7.8", "tipo": "documentación técnica oficial", "licencia": "PostgreSQL License"},
+    "F12": {"titulo": "Apéndices I y II de Algorithms (Erickson, s. f.)", "tipo": "libro o apunte de acceso abierto", "licencia": "CC BY-NC-SA 4.0"}
+  },
+  "temas": {
+    "Recursividad": {
+      "F1": [["Módulo sys (límite de recursión)", "https://docs.python.org/es/3/library/sys.html", ["recursion"]]],
+      "F2": [["Cap. 5: Condicionales y recursividad (5.8 a 5.10)", "https://allendowney.github.io/ThinkPython/chap05.html"],
+             ["Cap. 6: Valores de retorno (6.6, 6.10 y ejercicios 6.12.4 y 6.12.5)", "https://allendowney.github.io/ThinkPython/chap06.html"]],
+      "F3": [["Cap. 8: Métodos recursivos (8.2 a 8.4)", "https://chrismayfield.github.io/ThinkJava2/ch08.html"]],
+      "F4": [["Sección 9.1: Recursión", "https://math.hws.edu/javanotes9/c9/s1.html"]],
+      "F5": [["4.2 What Is Recursion?", "https://runestone.academy/ns/books/published/pythonds3/Recursion/WhatIsRecursion.html"],
+             ["4.3 Calculating the Sum of a List of Numbers", "https://runestone.academy/ns/books/published/pythonds3/Recursion/CalculatingtheSumofaListofNumbers.html"],
+             ["4.4 The Three Laws of Recursion", "https://runestone.academy/ns/books/published/pythonds3/Recursion/TheThreeLawsofRecursion.html"],
+             ["4.5 Converting an Integer to a String in Any Base", "https://runestone.academy/ns/books/published/pythonds3/Recursion/ConvertinganIntegertoaStringinAnyBase.html"],
+             ["4.6 Stack Frames: Implementing Recursion", "https://runestone.academy/ns/books/published/pythonds3/Recursion/StackFramesImplementingRecursion.html"],
+             ["4.8 Sierpinski Triangle", "https://runestone.academy/ns/books/published/pythonds3/Recursion/SierpinskiTriangle.html"],
+             ["4.10 Tower of Hanoi", "https://runestone.academy/ns/books/published/pythonds3/Recursion/TowerofHanoi.html"],
+             ["4.12 Dynamic Programming", "https://runestone.academy/ns/books/published/pythonds3/Recursion/DynamicProgramming.html"]],
+      "F7": [["Cap. 1: Recursion", "https://jeffe.cs.illinois.edu/teaching/algorithms/book/01-recursion.pdf"],
+             ["Cap. 2: Backtracking", "https://jeffe.cs.illinois.edu/teaching/algorithms/book/02-backtracking.pdf"],
+             ["Cap. 3: Dynamic Programming", "https://jeffe.cs.illinois.edu/teaching/algorithms/book/03-dynprog.pdf"]],
+      "F9": [["1.7 Recursive Functions", "https://composingprograms.com/3ed/recursive-functions"]],
+      "F10": [["1.2 Procedures and the Processes They Generate (1.2.1)", "https://mitp-content-server.mit.edu/books/content/sectbyfn/books_pres_0/6515/sicp.zip/full-text/book/book-Z-H-11.html"]],
+      "F11": [["7.8 WITH Queries (7.8.2 Recursive Queries)", "https://www.postgresql.org/docs/18/queries-with.html"]],
+      "F12": [["Apéndice I: Proof by Induction", "https://jeffe.cs.illinois.edu/teaching/algorithms/notes/98-induction.pdf"],
+              ["Apéndice II: Solving Recurrences", "https://jeffe.cs.illinois.edu/teaching/algorithms/notes/99-recurrences.pdf"]]
+    },
+    "Sintaxis y estructuras de control": {
+      "F1": [["3. Una introducción informal a Python", "https://docs.python.org/es/3/tutorial/introduction.html"],
+             ["4. Más herramientas para control de flujo", "https://docs.python.org/es/3/tutorial/controlflow.html"]],
+      "F2": [["Cap. 2: Variables y sentencias", "https://allendowney.github.io/ThinkPython/chap02.html"],
+             ["Cap. 7: Iteración y búsqueda", "https://allendowney.github.io/ThinkPython/chap07.html"]],
+      "F3": [["Cap. 2: Variables y operadores", "https://chrismayfield.github.io/ThinkJava2/ch02.html"],
+             ["Cap. 3: Entrada y salida", "https://chrismayfield.github.io/ThinkJava2/ch03.html"],
+             ["Cap. 5: Condicionales y lógica", "https://chrismayfield.github.io/ThinkJava2/ch05.html"],
+             ["Cap. 6: Bucles y cadenas", "https://chrismayfield.github.io/ThinkJava2/ch06.html"]]
+    },
+    "Estructuras de datos lineales": {
+      "F1": [["5. Estructuras de datos", "https://docs.python.org/es/3/tutorial/datastructures.html"]],
+      "F3": [["Cap. 7: Arreglos y referencias", "https://chrismayfield.github.io/ThinkJava2/ch07.html"]],
+      "F4": [["Sección 9.3: Stacks, Queues, and ADTs", "https://math.hws.edu/javanotes9/c9/s3.html"]],
+      "F5": [["3.3 Stacks", "https://runestone.academy/ns/books/published/pythonds3/BasicDS/WhatisaStack.html"],
+             ["3.5 Implementing a Stack in Python", "https://runestone.academy/ns/books/published/pythonds3/BasicDS/ImplementingaStackinPython.html"],
+             ["3.10 Queues", "https://runestone.academy/ns/books/published/pythonds3/BasicDS/WhatIsaQueue.html"],
+             ["3.12 Implementing a Queue in Python", "https://runestone.academy/ns/books/published/pythonds3/BasicDS/ImplementingaQueueinPython.html"]]
+    },
+    "Búsqueda y ordenamiento": {
+      "F2": [["Cap. 7: Iteración y búsqueda", "https://allendowney.github.io/ThinkPython/chap07.html"]],
+      "F4": [["Sección 7.5: Searching and Sorting", "https://math.hws.edu/javanotes9/c7/s5.html"]],
+      "F5": [["5.3 The Sequential Search", "https://runestone.academy/ns/books/published/pythonds3/SortSearch/TheSequentialSearch.html"],
+             ["5.4 The Binary Search", "https://runestone.academy/ns/books/published/pythonds3/SortSearch/TheBinarySearch.html"],
+             ["5.7 The Bubble Sort", "https://runestone.academy/ns/books/published/pythonds3/SortSearch/TheBubbleSort.html"]]
+    }
+  }
+}
