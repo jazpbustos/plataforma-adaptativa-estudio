@@ -299,6 +299,60 @@ def test_seis_fragmentos_por_fuente(client):
     assert sum(f["fuente"] == "académica" for f in r) == 6 and sum(f["fuente"] == "propia" for f in r) == 6
 
 
+# ---------------- Diversidad de fuentes ----------------
+
+@pytest.fixture()
+def libro_grande(client):
+    """El origen 1 tiene ocho fragmentos casi iguales a la consulta; los orígenes 2 a 4, uno cada uno, menos parecido.
+
+    Cada fragmento va en su propia sección, para que la fusión de vecinos no los junte.
+    """
+    tema = id_tema("Recursividad")
+    rag.indexar([rag.Seccion(f"El caso base detiene la recursión, ejemplo {i}.", f"s{i}") for i in range(8)],
+                id_origen=1, id_tema=tema, fuente=rag.ACADEMICA, nombre_archivo="Grande", prefijo="g")
+    for o in (2, 3, 4):
+        academica(tema, f"El caso base detiene la recursión según la fuente {o} con otras palabras distintas.", o)
+    return tema
+
+
+def test_un_origen_no_acapara_los_resultados(libro_grande, monkeypatch):
+    monkeypatch.setitem(rag.R, "max_por_origen", 0)  # sin máximo: el libro grande ocupa los seis lugares
+    r = rag.buscar(libro_grande, "el caso base detiene la recursión", [], minima=0)
+    assert [f["id_origen"] for f in r] == [1] * 6
+    monkeypatch.setitem(rag.R, "max_por_origen", 2)
+    r = rag.buscar(libro_grande, "el caso base detiene la recursión", [], minima=0)
+    origenes = [f["id_origen"] for f in r]
+    assert origenes[:2] == [1, 1] and sorted(origenes[2:]) == [2, 3, 4]  # los lugares libres van a otras fuentes
+    assert r == sorted(r, key=lambda f: f["similitud"], reverse=True)
+
+
+def test_la_diversidad_nunca_baja_del_umbral(libro_grande, monkeypatch):
+    monkeypatch.setitem(rag.R, "max_por_origen", 2)
+    todos = rag.buscar(libro_grande, "el caso base detiene la recursión", [], minima=0)
+    umbral = max(f["similitud"] for f in todos if f["id_origen"] != 1) + 0.001  # deja afuera a los otros orígenes
+    r = rag.buscar(libro_grande, "el caso base detiene la recursión", [], minima=umbral)
+    assert [f["id_origen"] for f in r] == [1, 1]  # mejor dos que completar con fragmentos bajo el umbral
+
+
+def test_los_candidatos_alcanzan_para_completar(libro_grande, monkeypatch):
+    monkeypatch.setitem(rag.R, "max_por_origen", 2)
+    monkeypatch.setitem(rag.R, "candidatos", 6)  # solo los seis primeros: casi todos del libro grande
+    pocos = rag.buscar(libro_grande, "el caso base detiene la recursión", [], minima=0)
+    monkeypatch.setitem(rag.R, "candidatos", 20)
+    muchos = rag.buscar(libro_grande, "el caso base detiene la recursión", [], minima=0)
+    assert len(pocos) < len(muchos) == 5
+
+
+def test_maximo_por_origen_del_material_propio_es_configurable(client, monkeypatch):
+    tema = id_tema("Recursividad")
+    rag.indexar([rag.Seccion(f"El caso base detiene la recursión, nota {i} de mi apunte.", f"pág. {i}") for i in range(4)],
+                id_origen=50, id_tema=tema, fuente=rag.PROPIA, nombre_archivo="apunte.pdf", prefijo="p")
+    monkeypatch.setitem(rag.R, "max_por_origen_propio", 0)
+    assert len(rag.buscar(tema, "el caso base detiene la recursión", [50], minima=0)) == 4
+    monkeypatch.setitem(rag.R, "max_por_origen_propio", 1)
+    assert len(rag.buscar(tema, "el caso base detiene la recursión", [50], minima=0)) == 1
+
+
 def test_material_insuficiente(client):
     tema = id_tema("Recursividad")
     academica(tema, "El caso base detiene la recursión y evita llamadas infinitas.", 1)

@@ -4,6 +4,7 @@ Uso (desde backend/, con el entorno activado):
     python -m app.evaluar                                   mide con el umbral actual
     python -m app.evaluar --umbrales 0.4,0.45,0.5,0.55,0.6  recalcula las métricas para cada umbral
     python -m app.evaluar --etiqueta "inicial"              además agrega el resultado a evaluacion/informe.md
+    python -m app.evaluar --param max_por_origen=3          prueba otro valor sin editar parametros.toml
 
 Cada consulta pasa por la misma búsqueda que usa la plataforma (rag.buscar sobre las fuentes académicas
 del tema, con el modelo de embeddings real) y el resultado se compara con las secciones que la responden.
@@ -194,8 +195,9 @@ def agregar_al_informe(etiqueta: str, contenido: str, informe: Path = INFORME) -
                            "Cada sección es una medición de `python -m app.evaluar` sobre `evaluacion/consultas.json`, "
                            "con los parámetros de `parametros.toml` vigentes en ese momento.\n", encoding="utf-8")
     fecha = datetime.now().strftime("%Y-%m-%d %H:%M")
-    parametros = ", ".join(f"{k} = {R[k]}" for k in ("tam_fragmento", "solapamiento", "k_por_fuente",
-                                                      "similitud_minima", "fragmentos_minimos"))
+    parametros = ", ".join(f"{k} = {R[k]}" for k in ("tam_fragmento", "solapamiento", "k_por_fuente", "candidatos",
+                                                      "max_por_origen", "vecinos", "similitud_minima",
+                                                      "fragmentos_minimos") if k in R)
     with informe.open("a", encoding="utf-8") as f:
         f.write(f"\n## {etiqueta} · {fecha}\n\nParámetros: {parametros}; modelo {R['modelo_embeddings']}; "
                 f"{len(rag.almacen().get(where={'fuente': rag.ACADEMICA})['ids'])} fragmentos académicos.\n\n"
@@ -206,7 +208,14 @@ def main(argv: list[str] | None = None) -> dict:
     a = argparse.ArgumentParser(description="Mide la recuperación con evaluacion/consultas.json.")
     a.add_argument("--umbrales", help="similitudes mínimas a comparar, separadas por coma (por defecto, la actual)")
     a.add_argument("--etiqueta", help="agrega el resultado a evaluacion/informe.md con esta etiqueta")
+    a.add_argument("--param", action="append", default=[], metavar="NOMBRE=VALOR",
+                   help="cambia un parámetro de [rag] solo para esta medición (p. ej. max_por_origen=3)")
     args = a.parse_args(argv)
+    for p in args.param:  # para comparar valores sin editar parametros.toml; el informe registra los usados
+        nombre, _, valor = p.partition("=")
+        if nombre not in R:
+            sys.exit(f"Parámetro desconocido en [rag]: {nombre}")
+        R[nombre] = type(R[nombre])(valor)
     actual = R["similitud_minima"]
     umbrales = sorted({float(u) for u in args.umbrales.split(",")} | {actual}) if args.umbrales else [actual]
 

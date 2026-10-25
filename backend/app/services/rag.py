@@ -10,7 +10,8 @@ fuentes usa el modelo de lenguaje):
 2. Segmentación: fragmentos de hasta 400 caracteres con 60 de superposición.
 3. Representación vectorial: paraphrase-multilingual-MiniLM-L12-v2, local (FastEmbed, sin costo por uso).
 4. Recuperación: los seis fragmentos más similares de cada fuente (propia y académica), filtrados por
-   tema, descartando los que no alcanzan una similitud coseno de 0,35. A cada fragmento se le agrega su
+   tema, descartando los que no alcanzan una similitud coseno de 0,35 y con un máximo por origen (los
+   lugares libres se completan con más candidatos de otras fuentes). A cada fragmento se le agrega su
    contexto (los fragmentos vecinos de la misma sección), y los vecinos recuperados se fusionan.
 
 Cada fragmento guarda los campos de FRAGMENTO_MATERIAL (Figura 6): id_fragmento, id_origen, id_tema,
@@ -262,23 +263,44 @@ def indexar(secciones: list[Seccion], *, id_origen: int, id_tema: int, fuente: s
     return len(docs)
 
 
-def _de_una_fuente(consulta: str, filtro: dict, k: int) -> list[dict]:
-    resultados = almacen().similarity_search_with_relevance_scores(consulta, k=k, filter=filtro)
-    return [{"id_fragmento": doc.id, "texto_original": doc.page_content, "similitud": round(score, 3), **doc.metadata}
-            for doc, score in resultados]
+def _de_una_fuente(consulta: str, filtro: dict, k: int, minima: float, max_por_origen: int) -> list[dict]:
+    """Los k fragmentos más similares que superan el umbral, con como mucho `max_por_origen` de cada origen.
+
+    Se piden más candidatos que los que se devuelven: si una fuente grande (Algorithms de Erickson tiene unos
+    850 fragmentos de Recursividad) ocupa los primeros puestos, los lugares que deja libres se completan con
+    los siguientes candidatos de otras fuentes, siempre sobre el umbral. 0 = sin máximo por origen.
+    """
+    resultados = almacen().similarity_search_with_relevance_scores(consulta, k=max(R["candidatos"], k), filter=filtro)
+    elegidos, por_origen = [], {}
+    for doc, score in resultados:  # vienen ordenados de mayor a menor similitud
+        o = doc.metadata["id_origen"]
+        if score < minima or (max_por_origen and por_origen.get(o, 0) >= max_por_origen):
+            continue
+        por_origen[o] = por_origen.get(o, 0) + 1
+        elegidos.append({"id_fragmento": doc.id, "texto_original": doc.page_content, "similitud": round(score, 3),
+                         **doc.metadata})
+        if len(elegidos) == k:
+            break
+    return elegidos
 
 
-def buscar(id_tema: int, consulta: str, materiales_propios: list[int], k: int = R["k_por_fuente"],
-           minima: float = R["similitud_minima"]) -> list[dict]:
+def buscar(id_tema: int, consulta: str, materiales_propios: list[int], k: int | None = None,
+           minima: float | None = None) -> list[dict]:
     """Los k fragmentos más similares de cada fuente del tema, sin los que no alcanzan la similitud mínima.
 
     Solo fuentes académicas o material del propio estudiante: nunca el material que subió otra persona.
+    En cada fuente se limita cuántos fragmentos puede aportar un mismo origen (max_por_origen y
+    max_por_origen_propio en parametros.toml), para que un libro grande no acapare los resultados.
+    Los parámetros se leen en cada llamada, así la evaluación puede probar otros valores.
     """
-    encontrados = _de_una_fuente(consulta, {"$and": [{"id_tema": id_tema}, {"fuente": ACADEMICA}]}, k)
+    k = R["k_por_fuente"] if k is None else k
+    minima = R["similitud_minima"] if minima is None else minima
+    encontrados = _de_una_fuente(consulta, {"$and": [{"id_tema": id_tema}, {"fuente": ACADEMICA}]}, k, minima,
+                                 R["max_por_origen"])
     if materiales_propios:
         encontrados += _de_una_fuente(consulta, {"$and": [{"id_tema": id_tema}, {"fuente": PROPIA},
-                                                          {"id_origen": {"$in": materiales_propios}}]}, k)
-    encontrados = [f for f in encontrados if f["similitud"] >= minima]
+                                                          {"id_origen": {"$in": materiales_propios}}]}, k, minima,
+                                      R["max_por_origen_propio"])
     return con_contexto(sorted(encontrados, key=lambda f: f["similitud"], reverse=True))
 
 
