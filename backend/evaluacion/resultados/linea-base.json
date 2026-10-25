@@ -1,0 +1,1491 @@
+{
+  "parametros": {
+    "rag": {
+      "tam_fragmento": 400,
+      "solapamiento": 60,
+      "fragmento_minimo": 30,
+      "k_por_fuente": 6,
+      "similitud_minima": 0.5,
+      "fragmentos_minimos": 2,
+      "modelo_embeddings": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    },
+    "evaluacion": {
+      "aciertos_en": [
+        1,
+        3
+      ],
+      "profundidad": 30
+    }
+  },
+  "resumen": {
+    "consultas": 29,
+    "con_respuesta": 24,
+    "sin_respuesta": 5,
+    "acierto@1": 0.625,
+    "acierto@3": 0.667,
+    "mrr": 0.673,
+    "precision": 0.595,
+    "suficiente_con_respuesta": 0.792,
+    "insuficiente_sin_respuesta": 0.8,
+    "sin_relevante_en_profundidad": 0,
+    "posicion_sin_umbral_mediana": 1.0,
+    "concentracion": 0.562,
+    "fragmentos_devueltos": 113,
+    "fragmentos_con_ruido": 10,
+    "similitud_primer_relevante": [
+      0.411,
+      0.476,
+      0.48,
+      0.519,
+      0.545,
+      0.555,
+      0.595,
+      0.613,
+      0.637,
+      0.68,
+      0.688,
+      0.7,
+      0.717,
+      0.728,
+      0.732,
+      0.738,
+      0.745,
+      0.747,
+      0.766,
+      0.784,
+      0.796,
+      0.817,
+      0.867,
+      0.89
+    ],
+    "similitud_maxima_sin_respuesta": [
+      0.395,
+      0.417,
+      0.429,
+      0.546,
+      0.634
+    ]
+  },
+  "consultas": [
+    {
+      "id": "R01",
+      "tema": "Recursividad",
+      "consulta": "¿Qué es el caso base y por qué toda función recursiva lo necesita?",
+      "con_respuesta": true,
+      "suficiente": true,
+      "suficiencia_correcta": true,
+      "devueltos": 6,
+      "relevantes_devueltos": 4,
+      "posicion": 1,
+      "posicion_sin_umbral": 1,
+      "similitud_primer_relevante": 0.784,
+      "similitud_maxima": 0.784,
+      "concentracion": 0.333,
+      "con_ruido": 0,
+      "fragmentos": [
+        {
+          "posicion": 1,
+          "similitud": 0.784,
+          "relevante": true,
+          "fuente": "Think Python, 3.ª ed. (Downey, 2023)",
+          "seccion": "Cap. 5: Condicionales y recursividad (5.8 a 5.10) · 5.13. Glossary",
+          "texto": "recursive:\nA function that calls itself is recursive.\n\nbase case:\nA conditional branch in a recursive function that does not make a recursive call.\n\ninfinite re"
+        },
+        {
+          "posicion": 2,
+          "similitud": 0.767,
+          "relevante": true,
+          "fuente": "Problem Solving with Algorithms and Data Structures using Python, 3.ª ed. (Miller y Ranum, 2014)",
+          "seccion": "4.4 The Three Laws of Recursion · 4.4. The Three Laws of Recursion",
+          "texto": "The final law is that the algorithm must call itself. This is the very\ndefinition of recursion. Recursion is a confusing concept to many\nbeginning programmers. "
+        },
+        {
+          "posicion": 3,
+          "similitud": 0.762,
+          "relevante": true,
+          "fuente": "Composing Programs, 3.ª ed. (DeNero, s. f.)",
+          "seccion": "1.7 Recursive Functions · The Anatomy of Recursive Functions",
+          "texto": "A common pattern can be found in the body of many recursive functions. The body begins with a base case, a conditional statement that defines the behavior of th"
+        },
+        {
+          "posicion": 4,
+          "similitud": 0.76,
+          "relevante": false,
+          "fuente": "Think Python, 3.ª ed. (Downey, 2023)",
+          "seccion": "Cap. 6: Valores de retorno (6.6, 6.10 y ejercicios 6.12.4 y 6.12.5) · 6.7. Leap of faith",
+          "texto": "The same is true of recursive programs.\nWhen you get to the recursive call, instead of following the flow of execution, you should assume that the recursive cal"
+        },
+        {
+          "posicion": 5,
+          "similitud": 0.75,
+          "relevante": false,
+          "fuente": "Composing Programs, 3.ª ed. (DeNero, s. f.)",
+          "seccion": "1.7 Recursive Functions · The Anatomy of Recursive Functions",
+          "texto": "Recursive functions leverage the rules of evaluating call expressions to bind names to values, often avoiding the nuisance of correctly assigning local names du"
+        },
+        {
+          "posicion": 6,
+          "similitud": 0.74,
+          "relevante": true,
+          "fuente": "Problem Solving with Algorithms and Data Structures using Python, 3.ª ed. (Miller y Ranum, 2014)",
+          "seccion": "4.4 The Three Laws of Recursion · 4.4. The Three Laws of Recursion",
+          "texto": "function to solve each problem. When we talk about recursion it may seem\nthat we are talking ourselves in circles. We have a problem to solve\nwith a function, b"
+        }
+      ]
+    },
+    {
+      "id": "R02",
+      "tema": "Recursividad",
+      "consulta": "¿Qué es el caso recursivo y cómo hace para acercarse al caso base?",
+      "con_respuesta": true,
+      "suficiente": true,
+      "suficiencia_correcta": true,
+      "devueltos": 6,
+      "relevantes_devueltos": 3,
+      "posicion": 1,
+      "posicion_sin_umbral": 1,
+      "similitud_primer_relevante": 0.738,
+      "similitud_maxima": 0.738,
+      "concentracion": 0.333,
+      "con_ruido": 1,
+      "fragmentos": [
+        {
+          "posicion": 1,
+          "similitud": 0.738,
+          "relevante": true,
+          "fuente": "Composing Programs, 3.ª ed. (DeNero, s. f.)",
+          "seccion": "1.7 Recursive Functions · The Anatomy of Recursive Functions",
+          "texto": "As the recursion “unwinds” through successive applications of the fact function to simpler and simpler problem instances, the result is eventually built startin"
+        },
+        {
+          "posicion": 2,
+          "similitud": 0.726,
+          "relevante": true,
+          "fuente": "Problem Solving with Algorithms and Data Structures using Python, 3.ª ed. (Miller y Ranum, 2014)",
+          "seccion": "4.4 The Three Laws of Recursion · 4.4. The Three Laws of Recursion",
+          "texto": "The final law is that the algorithm must call itself. This is the very\ndefinition of recursion. Recursion is a confusing concept to many\nbeginning programmers. "
+        },
+        {
+          "posicion": 3,
+          "similitud": 0.725,
+          "relevante": true,
+          "fuente": "Apéndices I y II de Algorithms (Erickson, s. f.)",
+          "seccion": "Apéndice II: Solving Recurrences · pág. 1",
+          "texto": "Solving Recurrences\n/one.Alt.oldstyle Introduction\nArecurrenceis a recursive description of a function, or in other words, a description of a function\nin terms "
+        },
+        {
+          "posicion": 4,
+          "similitud": 0.725,
+          "relevante": false,
+          "fuente": "Problem Solving with Algorithms and Data Structures using Python, 3.ª ed. (Miller y Ranum, 2014)",
+          "seccion": "4.2 What Is Recursion? · 4.2. What Is Recursion?",
+          "texto": "Recursion is a method of solving problems that involves breaking a\nproblem down into smaller and smaller subproblems until you get to a\nsmall enough problem tha"
+        },
+        {
+          "posicion": 5,
+          "similitud": 0.716,
+          "relevante": false,
+          "fuente": "Think Python, 3.ª ed. (Downey, 2023)",
+          "seccion": "Cap. 5: Condicionales y recursividad (5.8 a 5.10) · 5.13. Glossary",
+          "texto": "recursive:\nA function that calls itself is recursive.\n\nbase case:\nA conditional branch in a recursive function that does not make a recursive call.\n\ninfinite re"
+        },
+        {
+          "posicion": 6,
+          "similitud": 0.706,
+          "relevante": false,
+          "fuente": "Apéndices I y II de Algorithms (Erickson, s. f.)",
+          "seccion": "Apéndice II: Solving Recurrences · pág. 7",
+          "texto": "which is the root of a (recursively deﬁned) recursion tree for the functionT (n/b).\nEquivalently, a recursion tree is a completea-ary tree where each node at de"
+        }
+      ]
+    },
+    {
+      "id": "R03",
+      "tema": "Recursividad",
+      "consulta": "¿Qué pasa si una función recursiva no tiene caso base?",
+      "con_respuesta": true,
+      "suficiente": true,
+      "suficiencia_correcta": true,
+      "devueltos": 6,
+      "relevantes_devueltos": 2,
+      "posicion": 1,
+      "posicion_sin_umbral": 1,
+      "similitud_primer_relevante": 0.817,
+      "similitud_maxima": 0.817,
+      "concentracion": 0.5,
+      "con_ruido": 1,
+      "fragmentos": [
+        {
+          "posicion": 1,
+          "similitud": 0.817,
+          "relevante": true,
+          "fuente": "Think Python, 3.ª ed. (Downey, 2023)",
+          "seccion": "Cap. 5: Condicionales y recursividad (5.8 a 5.10) · 5.13. Glossary",
+          "texto": "recursive:\nA function that calls itself is recursive.\n\nbase case:\nA conditional branch in a recursive function that does not make a recursive call.\n\ninfinite re"
+        },
+        {
+          "posicion": 2,
+          "similitud": 0.777,
+          "relevante": false,
+          "fuente": "Composing Programs, 3.ª ed. (DeNero, s. f.)",
+          "seccion": "1.7 Recursive Functions · The Anatomy of Recursive Functions",
+          "texto": "Recursive functions leverage the rules of evaluating call expressions to bind names to values, often avoiding the nuisance of correctly assigning local names du"
+        },
+        {
+          "posicion": 3,
+          "similitud": 0.765,
+          "relevante": false,
+          "fuente": "Think Java, 2.ª ed. (Downey y Mayfield, 2019)",
+          "seccion": "Cap. 8: Métodos recursivos (8.2 a 8.4) · 8.4 The Leap of Faith",
+          "texto": "Recursive methods are no different. When you get to a recursive call, don’t think about the flow of execution. Instead, assume that the recursive call produces "
+        },
+        {
+          "posicion": 4,
+          "similitud": 0.759,
+          "relevante": false,
+          "fuente": "Think Python, 3.ª ed. (Downey, 2023)",
+          "seccion": "Cap. 6: Valores de retorno (6.6, 6.10 y ejercicios 6.12.4 y 6.12.5) · 6.7. Leap of faith",
+          "texto": "The same is true of recursive programs.\nWhen you get to the recursive call, instead of following the flow of execution, you should assume that the recursive cal"
+        },
+        {
+          "posicion": 5,
+          "similitud": 0.759,
+          "relevante": true,
+          "fuente": "Think Python, 3.ª ed. (Downey, 2023)",
+          "seccion": "Cap. 5: Condicionales y recursividad (5.8 a 5.10) · 5.10. Infinite recursion",
+          "texto": "If a recursion never reaches a base case, it goes on making recursive\ncalls forever, and the program never terminates. This is known as\ninfinite recursion, and "
+        },
+        {
+          "posicion": 6,
+          "similitud": 0.758,
+          "relevante": false,
+          "fuente": "Composing Programs, 3.ª ed. (DeNero, s. f.)",
+          "seccion": "1.7 Recursive Functions · Mutual Recursion",
+          "texto": "result = is_even(4)\n''', step=0, cumulative=False)\n\nMutually recursive functions can be turned into a single recursive function by breaking the abstraction boun"
+        }
+      ]
+    },
+    {
+      "id": "R04",
+      "tema": "Recursividad",
+      "consulta": "¿Cómo se guarda cada llamada recursiva en la pila de llamadas?",
+      "con_respuesta": true,
+      "suficiente": true,
+      "suficiencia_correcta": true,
+      "devueltos": 6,
+      "relevantes_devueltos": 0,
+      "posicion": null,
+      "posicion_sin_umbral": 24,
+      "similitud_primer_relevante": 0.613,
+      "similitud_maxima": 0.713,
+      "concentracion": 0.333,
+      "con_ruido": 0,
+      "fragmentos": [
+        {
+          "posicion": 1,
+          "similitud": 0.713,
+          "relevante": false,
+          "fuente": "Composing Programs, 3.ª ed. (DeNero, s. f.)",
+          "seccion": "1.7 Recursive Functions · Tree Recursion",
+          "texto": "A function with multiple recursive calls is said to be tree recursive because each call branches into multiple smaller calls, each of which branches into yet sm"
+        },
+        {
+          "posicion": 2,
+          "similitud": 0.711,
+          "relevante": false,
+          "fuente": "Problem Solving with Algorithms and Data Structures using Python, 3.ª ed. (Miller y Ranum, 2014)",
+          "seccion": "4.4 The Three Laws of Recursion · 4.4. The Three Laws of Recursion",
+          "texto": "6\n\nThere are only five numbers on the list, the number of recursive calls will not be greater than the size of the list.\n\n5\n\nThe initial call to list_sum is not"
+        },
+        {
+          "posicion": 3,
+          "similitud": 0.706,
+          "relevante": false,
+          "fuente": "Composing Programs, 3.ª ed. (DeNero, s. f.)",
+          "seccion": "1.7 Recursive Functions · The Anatomy of Recursive Functions",
+          "texto": "The base cases are then followed by one or more recursive calls. Recursive calls always have a certain character: they simplify the original problem. Recursive "
+        },
+        {
+          "posicion": 4,
+          "similitud": 0.699,
+          "relevante": false,
+          "fuente": "Think Python, 3.ª ed. (Downey, 2023)",
+          "seccion": "Cap. 5: Condicionales y recursividad (5.8 a 5.10) · 5.10. Infinite recursion",
+          "texto": "If a recursion never reaches a base case, it goes on making recursive\ncalls forever, and the program never terminates. This is known as\ninfinite recursion, and "
+        },
+        {
+          "posicion": 5,
+          "similitud": 0.68,
+          "relevante": false,
+          "fuente": "Problem Solving with Algorithms and Data Structures using Python, 3.ª ed. (Miller y Ranum, 2014)",
+          "seccion": "4.5 Converting an Integer to a String in Any Base · 4.5. Converting an Integer to a String in Any Base",
+          "texto": "the concatenation operation until after the recursive call has returned,\nwe get the result in the proper order. This should remind you of our\ndiscussion of stac"
+        },
+        {
+          "posicion": 6,
+          "similitud": 0.666,
+          "relevante": false,
+          "fuente": "Think Python, 3.ª ed. (Downey, 2023)",
+          "seccion": "Cap. 5: Condicionales y recursividad (5.8 a 5.10) · 5.13. Glossary",
+          "texto": "recursive:\nA function that calls itself is recursive.\n\nbase case:\nA conditional branch in a recursive function that does not make a recursive call.\n\ninfinite re"
+        }
+      ]
+    },
+    {
+      "id": "R05",
+      "tema": "Recursividad",
+      "consulta": "¿Qué error tira Python cuando se supera la profundidad máxima de recursión?",
+      "con_respuesta": true,
+      "suficiente": true,
+      "suficiencia_correcta": true,
+      "devueltos": 6,
+      "relevantes_devueltos": 6,
+      "posicion": 1,
+      "posicion_sin_umbral": 1,
+      "similitud_primer_relevante": 0.867,
+      "similitud_maxima": 0.867,
+      "concentracion": 0.5,
+      "con_ruido": 0,
+      "fragmentos": [
+        {
+          "posicion": 1,
+          "similitud": 0.867,
+          "relevante": true,
+          "fuente": "Documentación oficial de Python, versión 3.15",
+          "seccion": "Módulo sys (límite de recursión) · sys.getrecursionlimit()",
+          "texto": "Retorna el valor actual del límite de recursividad, la profundidad máxima de la pila de intérpretes de Python. Este límite evita que la recursividad infinita ca"
+        },
+        {
+          "posicion": 2,
+          "similitud": 0.843,
+          "relevante": true,
+          "fuente": "Documentación oficial de Python, versión 3.15",
+          "seccion": "Módulo sys (límite de recursión) · sys.setrecursionlimit(limit)",
+          "texto": "Establece la profundidad máxima de la pila de intérpretes de Python en limit. Este límite evita que la recursividad infinita cause un desbordamiento de la pila "
+        },
+        {
+          "posicion": 3,
+          "similitud": 0.743,
+          "relevante": true,
+          "fuente": "Documentación oficial de Python, versión 3.15",
+          "seccion": "Módulo sys (límite de recursión) · sys.setrecursionlimit(limit)",
+          "texto": "Si el nuevo límite es demasiado bajo en la profundidad de recursividad actual, se genera una excepción RecursionError.\n\nDistinto en la versión 3.5.1: A la excep"
+        },
+        {
+          "posicion": 4,
+          "similitud": 0.702,
+          "relevante": true,
+          "fuente": "Think Python, 3.ª ed. (Downey, 2023)",
+          "seccion": "Cap. 5: Condicionales y recursividad (5.8 a 5.10) · 5.10. Infinite recursion",
+          "texto": "[... skipping similar frames: recurse at line 2 (2957 times)]\n\nCell In[38], line 2, in recurse()\n      1 def recurse():\n----> 2     recurse()\n\nRecursionError: m"
+        },
+        {
+          "posicion": 5,
+          "similitud": 0.692,
+          "relevante": true,
+          "fuente": "Think Python, 3.ª ed. (Downey, 2023)",
+          "seccion": "Cap. 6: Valores de retorno (6.6, 6.10 y ejercicios 6.12.4 y 6.12.5) · 6.9. Checking types",
+          "texto": "What happens if we call factorial and give it 1.5 as an argument?\n\nfactorial(1.5)\n\nRecursionError: maximum recursion depth exceeded in comparison\n\nIt looks like"
+        },
+        {
+          "posicion": 6,
+          "similitud": 0.659,
+          "relevante": true,
+          "fuente": "Think Python, 3.ª ed. (Downey, 2023)",
+          "seccion": "Cap. 5: Condicionales y recursividad (5.8 a 5.10) · 5.10. Infinite recursion",
+          "texto": "def recurse():\n    recurse()\n\nEvery time recurse is called, it calls itself, which creates another frame.\nIn Python, there is a limit to the number of frames th"
+        }
+      ]
+    },
+    {
+      "id": "R06",
+      "tema": "Recursividad",
+      "consulta": "¿Cómo cambio el límite de recursión en Python?",
+      "con_respuesta": true,
+      "suficiente": true,
+      "suficiencia_correcta": true,
+      "devueltos": 6,
+      "relevantes_devueltos": 3,
+      "posicion": 1,
+      "posicion_sin_umbral": 1,
+      "similitud_primer_relevante": 0.89,
+      "similitud_maxima": 0.89,
+      "concentracion": 0.5,
+      "con_ruido": 0,
+      "fragmentos": [
+        {
+          "posicion": 1,
+          "similitud": 0.89,
+          "relevante": true,
+          "fuente": "Documentación oficial de Python, versión 3.15",
+          "seccion": "Módulo sys (límite de recursión) · sys.getrecursionlimit()",
+          "texto": "Retorna el valor actual del límite de recursividad, la profundidad máxima de la pila de intérpretes de Python. Este límite evita que la recursividad infinita ca"
+        },
+        {
+          "posicion": 2,
+          "similitud": 0.839,
+          "relevante": true,
+          "fuente": "Documentación oficial de Python, versión 3.15",
+          "seccion": "Módulo sys (límite de recursión) · sys.setrecursionlimit(limit)",
+          "texto": "Establece la profundidad máxima de la pila de intérpretes de Python en limit. Este límite evita que la recursividad infinita cause un desbordamiento de la pila "
+        },
+        {
+          "posicion": 3,
+          "similitud": 0.733,
+          "relevante": false,
+          "fuente": "Think Python, 3.ª ed. (Downey, 2023)",
+          "seccion": "Cap. 5: Condicionales y recursividad (5.8 a 5.10) · 5.10. Infinite recursion",
+          "texto": "def recurse():\n    recurse()\n\nEvery time recurse is called, it calls itself, which creates another frame.\nIn Python, there is a limit to the number of frames th"
+        },
+        {
+          "posicion": 4,
+          "similitud": 0.702,
+          "relevante": true,
+          "fuente": "Documentación oficial de Python, versión 3.15",
+          "seccion": "Módulo sys (límite de recursión) · sys.setrecursionlimit(limit)",
+          "texto": "Si el nuevo límite es demasiado bajo en la profundidad de recursividad actual, se genera una excepción RecursionError.\n\nDistinto en la versión 3.5.1: A la excep"
+        },
+        {
+          "posicion": 5,
+          "similitud": 0.664,
+          "relevante": false,
+          "fuente": "Think Python, 3.ª ed. (Downey, 2023)",
+          "seccion": "Cap. 5: Condicionales y recursividad (5.8 a 5.10) · 5.10. Infinite recursion",
+          "texto": "If a recursion never reaches a base case, it goes on making recursive\ncalls forever, and the program never terminates. This is known as\ninfinite recursion, and "
+        },
+        {
+          "posicion": 6,
+          "similitud": 0.656,
+          "relevante": false,
+          "fuente": "Think Python, 3.ª ed. (Downey, 2023)",
+          "seccion": "Cap. 6: Valores de retorno (6.6, 6.10 y ejercicios 6.12.4 y 6.12.5) · 6.9. Checking types",
+          "texto": "What happens if we call factorial and give it 1.5 as an argument?\n\nfactorial(1.5)\n\nRecursionError: maximum recursion depth exceeded in comparison\n\nIt looks like"
+        }
+      ]
+    },
+    {
+      "id": "R07",
+      "tema": "Recursividad",
+      "consulta": "¿Cómo se calcula el factorial de un número con una función recursiva?",
+      "con_respuesta": true,
+      "suficiente": true,
+      "suficiencia_correcta": true,
+      "devueltos": 6,
+      "relevantes_devueltos": 6,
+      "posicion": 1,
+      "posicion_sin_umbral": 1,
+      "similitud_primer_relevante": 0.747,
+      "similitud_maxima": 0.747,
+      "concentracion": 0.333,
+      "con_ruido": 0,
+      "fragmentos": [
+        {
+          "posicion": 1,
+          "similitud": 0.747,
+          "relevante": true,
+          "fuente": "Composing Programs, 3.ª ed. (DeNero, s. f.)",
+          "seccion": "1.7 Recursive Functions · The Anatomy of Recursive Functions",
+          "texto": "The correctness of this recursive function is easy to verify from the standard definition of the mathematical function for factorial:"
+        },
+        {
+          "posicion": 2,
+          "similitud": 0.74,
+          "relevante": true,
+          "fuente": "Think Java, 2.ª ed. (Downey y Mayfield, 2019)",
+          "seccion": "Cap. 8: Métodos recursivos (8.2 a 8.4) · 8.4 The Leap of Faith",
+          "texto": "Recursive methods are no different. When you get to a recursive call, don’t think about the flow of execution. Instead, assume that the recursive call produces "
+        },
+        {
+          "posicion": 3,
+          "similitud": 0.734,
+          "relevante": true,
+          "fuente": "Think Python, 3.ª ed. (Downey, 2023)",
+          "seccion": "Cap. 6: Valores de retorno (6.6, 6.10 y ejercicios 6.12.4 y 6.12.5) · 6.7. Leap of faith",
+          "texto": "The same is true of recursive programs.\nWhen you get to the recursive call, instead of following the flow of execution, you should assume that the recursive cal"
+        },
+        {
+          "posicion": 4,
+          "similitud": 0.731,
+          "relevante": true,
+          "fuente": "Structure and Interpretation of Computer Programs, 2.ª ed. (Abelson y Sussman, 1996)",
+          "seccion": "1.2 Procedures and the Processes They Generate (1.2.1) · 1.2.1 Linear Recursion and Iteration",
+          "texto": "Figure 1.3:  A linear recursive process for computing 6!.\n\nWe begin by considering the factorial function, defined by\n\nThere are many ways to compute factorials"
+        },
+        {
+          "posicion": 5,
+          "similitud": 0.725,
+          "relevante": true,
+          "fuente": "Composing Programs, 3.ª ed. (DeNero, s. f.)",
+          "seccion": "1.7 Recursive Functions · The Anatomy of Recursive Functions",
+          "texto": "Recursive functions often solve problems in a different way than the iterative approaches that we have used previously. Consider a function fact to compute n fa"
+        },
+        {
+          "posicion": 6,
+          "similitud": 0.714,
+          "relevante": true,
+          "fuente": "Think Python, 3.ª ed. (Downey, 2023)",
+          "seccion": "Cap. 6: Valores de retorno (6.6, 6.10 y ejercicios 6.12.4 y 6.12.5) · 6.6. Recursion with return values",
+          "texto": "This definition says that the factorial of \\(0\\) is \\(1\\), and the factorial of any other value, \\(n\\), is \\(n\\) multiplied by the factorial of \\(n-1\\).\n\nIf you"
+        }
+      ]
+    },
+    {
+      "id": "R08",
+      "tema": "Recursividad",
+      "consulta": "¿Por qué el Fibonacci recursivo es tan lento y repite cálculos?",
+      "con_respuesta": true,
+      "suficiente": true,
+      "suficiencia_correcta": true,
+      "devueltos": 6,
+      "relevantes_devueltos": 6,
+      "posicion": 1,
+      "posicion_sin_umbral": 1,
+      "similitud_primer_relevante": 0.766,
+      "similitud_maxima": 0.766,
+      "concentracion": 0.5,
+      "con_ruido": 2,
+      "fragmentos": [
+        {
+          "posicion": 1,
+          "similitud": 0.766,
+          "relevante": true,
+          "fuente": "Algorithms, 1.ª ed. (Erickson, 2019)",
+          "seccion": "Cap. 3: Dynamic Programming · pág. 7",
+          "texto": "™￿.￿ Aside: Even Faster Fibonacci Numbers\nAlthough the previous algorithm is simple and attractive, it is not the fastest\nalgorithm to compute Fibonacci numbers"
+        },
+        {
+          "posicion": 2,
+          "similitud": 0.765,
+          "relevante": true,
+          "fuente": "Algorithms, 1.ª ed. (Erickson, 2019)",
+          "seccion": "Cap. 3: Dynamic Programming · pág. 2",
+          "texto": "recurrence, but with di\u0000erent base cases:\nFn =\n8\n><\n>:\n0 if n = 0\n1 if n = 1\nFn\u00001 + Fn\u00002 otherwise\nIn particular , we have M (n)= Fn+1 for all n.\nBacktracking C"
+        },
+        {
+          "posicion": 3,
+          "similitud": 0.721,
+          "relevante": true,
+          "fuente": "Structure and Interpretation of Computer Programs, 2.ª ed. (Abelson y Sussman, 1996)",
+          "seccion": "1.2 Procedures and the Processes They Generate (1.2.1) · 1.2.2 Tree Recursion",
+          "texto": "This procedure is instructive as a prototypical tree recursion, but it\nis a terrible way to compute Fibonacci numbers because it does so much\nredundant computat"
+        },
+        {
+          "posicion": 4,
+          "similitud": 0.713,
+          "relevante": true,
+          "fuente": "Algorithms, 1.ª ed. (Erickson, 2019)",
+          "seccion": "Cap. 3: Dynamic Programming · pág. 4",
+          "texto": "Fibonacci number Fi . But by design, the recurrence for Fi is evaluated only once\nfor each index i. We conclude that M\u0000\u0000F\u0000\u0000\u0000 performs only O(n) additions, an\nex"
+        },
+        {
+          "posicion": 5,
+          "similitud": 0.69,
+          "relevante": true,
+          "fuente": "Think Python, 3.ª ed. (Downey, 2023)",
+          "seccion": "Cap. 6: Valores de retorno (6.6, 6.10 y ejercicios 6.12.4 y 6.12.5) · 6.8. Fibonacci",
+          "texto": "If you try to follow the flow of execution here, even for small values of \\(n\\), your head explodes.\nBut according to the leap of faith, if you assume that the "
+        },
+        {
+          "posicion": 6,
+          "similitud": 0.669,
+          "relevante": true,
+          "fuente": "Think Python, 3.ª ed. (Downey, 2023)",
+          "seccion": "Cap. 6: Valores de retorno (6.6, 6.10 y ejercicios 6.12.4 y 6.12.5) · 6.8. Fibonacci",
+          "texto": "After factorial, the most common example of a recursive function is fibonacci, which has the following definition:\n\n\\[\\begin{split}\\begin{aligned}\n\\mathrm{fibon"
+        }
+      ]
+    },
+    {
+      "id": "R09",
+      "tema": "Recursividad",
+      "consulta": "¿Cómo se resuelven las torres de Hanoi con recursión?",
+      "con_respuesta": true,
+      "suficiente": true,
+      "suficiencia_correcta": true,
+      "devueltos": 6,
+      "relevantes_devueltos": 6,
+      "posicion": 1,
+      "posicion_sin_umbral": 1,
+      "similitud_primer_relevante": 0.745,
+      "similitud_maxima": 0.745,
+      "concentracion": 0.333,
+      "con_ruido": 3,
+      "fragmentos": [
+        {
+          "posicion": 1,
+          "similitud": 0.745,
+          "relevante": true,
+          "fuente": "Problem Solving with Algorithms and Data Structures using Python, 3.ª ed. (Miller y Ranum, 2014)",
+          "seccion": "4.10 Tower of Hanoi · 4.10. Tower of Hanoi",
+          "texto": "Figure 4.11: An Example Arrangement of Disks for the Tower of Hanoi"
+        },
+        {
+          "posicion": 2,
+          "similitud": 0.706,
+          "relevante": true,
+          "fuente": "Algorithms, 1.ª ed. (Erickson, 2019)",
+          "seccion": "Cap. 1: Recursion · pág. 5",
+          "texto": "the puzzle, we have to move the n \u0000 1 smaller disks from the spare peg to their\ndestination.\nrecursion  \n  recursion\nFigure ￿.￿. The Tower of Hanoi algorithm; i"
+        },
+        {
+          "posicion": 3,
+          "similitud": 0.647,
+          "relevante": true,
+          "fuente": "Problem Solving with Algorithms and Data Structures using Python, 3.ª ed. (Miller y Ranum, 2014)",
+          "seccion": "4.10 Tower of Hanoi · 4.10. Tower of Hanoi",
+          "texto": "As long as we always obey the rule that the larger disks remain on the\nbottom of the stack, we can use the three steps above recursively,\ntreating any larger di"
+        },
+        {
+          "posicion": 4,
+          "similitud": 0.644,
+          "relevante": true,
+          "fuente": "Introduction to Programming Using Java, versión 9 (Eck, 2022)",
+          "seccion": "Sección 9.1: Recursión · 9.1.2 Towers of Hanoi",
+          "texto": "(In the terminology of Section 8.5, the Towers of Hanoi\nalgorithm has a run time that is Θ(2n), where n is the number\nof disks that have to be moved.\nSince the "
+        },
+        {
+          "posicion": 5,
+          "similitud": 0.636,
+          "relevante": true,
+          "fuente": "Algorithms, 1.ª ed. (Erickson, 2019)",
+          "seccion": "Cap. 1: Recursion · pág. 5",
+          "texto": "￿.￿. Tower of Hanoi\n“needles”. How can we move a tower of n disks from one peg to another , using a\nthird spare peg as an occasional placeholder , without ever "
+        },
+        {
+          "posicion": 6,
+          "similitud": 0.63,
+          "relevante": true,
+          "fuente": "Apéndices I y II de Algorithms (Erickson, s. f.)",
+          "seccion": "Apéndice II: Solving Recurrences · pág. 2",
+          "texto": "/two.oldstyle./one.Alt.oldstyle Tower of Hanoi\nThe classical Tower of Hanoi problem gives us the recurrenceT (n) = 2T (n− 1) + 1 with base\ncase T (0) = 0. Just "
+        }
+      ]
+    },
+    {
+      "id": "R10",
+      "tema": "Recursividad",
+      "consulta": "¿Qué es la recursión de cola?",
+      "con_respuesta": true,
+      "suficiente": true,
+      "suficiencia_correcta": true,
+      "devueltos": 6,
+      "relevantes_devueltos": 1,
+      "posicion": 4,
+      "posicion_sin_umbral": 4,
+      "similitud_primer_relevante": 0.717,
+      "similitud_maxima": 0.774,
+      "concentracion": 0.333,
+      "con_ruido": 0,
+      "fragmentos": [
+        {
+          "posicion": 1,
+          "similitud": 0.774,
+          "relevante": false,
+          "fuente": "Think Java, 2.ª ed. (Downey y Mayfield, 2019)",
+          "seccion": "Cap. 8: Métodos recursivos (8.2 a 8.4) · 8.3 Value-Returning Methods",
+          "texto": "recursive:\n\nAn adjective used to describe a method that is recursive.\n\nIf you saw that definition in the dictionary, you might be annoyed. Then again, if you se"
+        },
+        {
+          "posicion": 2,
+          "similitud": 0.76,
+          "relevante": false,
+          "fuente": "Problem Solving with Algorithms and Data Structures using Python, 3.ª ed. (Miller y Ranum, 2014)",
+          "seccion": "4.2 What Is Recursion? · 4.2. What Is Recursion?",
+          "texto": "Recursion is a method of solving problems that involves breaking a\nproblem down into smaller and smaller subproblems until you get to a\nsmall enough problem tha"
+        },
+        {
+          "posicion": 3,
+          "similitud": 0.726,
+          "relevante": false,
+          "fuente": "Problem Solving with Algorithms and Data Structures using Python, 3.ª ed. (Miller y Ranum, 2014)",
+          "seccion": "4.4 The Three Laws of Recursion · 4.4. The Three Laws of Recursion",
+          "texto": "The final law is that the algorithm must call itself. This is the very\ndefinition of recursion. Recursion is a confusing concept to many\nbeginning programmers. "
+        },
+        {
+          "posicion": 4,
+          "similitud": 0.717,
+          "relevante": true,
+          "fuente": "Structure and Interpretation of Computer Programs, 2.ª ed. (Abelson y Sussman, 1996)",
+          "seccion": "1.2 Procedures and the Processes They Generate (1.2.1) · Probabilistic methods",
+          "texto": "31 Tail recursion has long been\nknown as a compiler optimization trick.  A coherent semantic basis for\ntail recursion was provided by Carl Hewitt (1977), who ex"
+        },
+        {
+          "posicion": 5,
+          "similitud": 0.703,
+          "relevante": false,
+          "fuente": "Think Python, 3.ª ed. (Downey, 2023)",
+          "seccion": "Cap. 5: Condicionales y recursividad (5.8 a 5.10) · 5.13. Glossary",
+          "texto": "recursive:\nA function that calls itself is recursive.\n\nbase case:\nA conditional branch in a recursive function that does not make a recursive call.\n\ninfinite re"
+        },
+        {
+          "posicion": 6,
+          "similitud": 0.697,
+          "relevante": false,
+          "fuente": "Introduction to Programming Using Java, versión 9 (Eck, 2022)",
+          "seccion": "Sección 9.1: Recursión · Recursion",
+          "texto": "Recursion can be used as a programming technique. A \nrecursive subroutine (or recursive method)\nis one that calls itself, either directly\nor indirectly. To say "
+        }
+      ]
+    },
+    {
+      "id": "R11",
+      "tema": "Recursividad",
+      "consulta": "¿Qué es la memoización y cómo evita recalcular resultados?",
+      "con_respuesta": true,
+      "suficiente": true,
+      "suficiencia_correcta": true,
+      "devueltos": 2,
+      "relevantes_devueltos": 1,
+      "posicion": 1,
+      "posicion_sin_umbral": 1,
+      "similitud_primer_relevante": 0.595,
+      "similitud_maxima": 0.595,
+      "concentracion": 0.5,
+      "con_ruido": 0,
+      "fragmentos": [
+        {
+          "posicion": 1,
+          "similitud": 0.595,
+          "relevante": true,
+          "fuente": "Structure and Interpretation of Computer Programs, 2.ª ed. (Abelson y Sussman, 1996)",
+          "seccion": "1.2 Procedures and the Processes They Generate (1.2.1) · Probabilistic methods",
+          "texto": "This strategy, known as tabulation or memoization, can be\nimplemented in a straightforward way.  Tabulation can sometimes be\nused to transform processes that re"
+        },
+        {
+          "posicion": 2,
+          "similitud": 0.57,
+          "relevante": false,
+          "fuente": "Apéndices I y II de Algorithms (Erickson, s. f.)",
+          "seccion": "Apéndice II: Solving Recurrences · pág. 12",
+          "texto": "which makes the method hard to remember, and for most divide-and-conquer recurrences that\narise in practice, there are much simpler solution techniques.\n/five.o"
+        }
+      ]
+    },
+    {
+      "id": "R12",
+      "tema": "Recursividad",
+      "consulta": "¿Cómo convierto una función recursiva en una iterativa con un bucle?",
+      "con_respuesta": true,
+      "suficiente": true,
+      "suficiencia_correcta": true,
+      "devueltos": 6,
+      "relevantes_devueltos": 0,
+      "posicion": null,
+      "posicion_sin_umbral": 17,
+      "similitud_primer_relevante": 0.68,
+      "similitud_maxima": 0.752,
+      "concentracion": 0.5,
+      "con_ruido": 1,
+      "fragmentos": [
+        {
+          "posicion": 1,
+          "similitud": 0.752,
+          "relevante": false,
+          "fuente": "Problem Solving with Algorithms and Data Structures using Python, 3.ª ed. (Miller y Ranum, 2014)",
+          "seccion": "4.4 The Three Laws of Recursion · 4.4. The Three Laws of Recursion",
+          "texto": "function to solve each problem. When we talk about recursion it may seem\nthat we are talking ourselves in circles. We have a problem to solve\nwith a function, b"
+        },
+        {
+          "posicion": 2,
+          "similitud": 0.743,
+          "relevante": false,
+          "fuente": "Composing Programs, 3.ª ed. (DeNero, s. f.)",
+          "seccion": "1.7 Recursive Functions · 1.7 Recursive Functions",
+          "texto": "from pytutor import env_diagram\n\nA function is called recursive if the body of the function calls the function itself, either directly or indirectly. That is, t"
+        },
+        {
+          "posicion": 3,
+          "similitud": 0.726,
+          "relevante": false,
+          "fuente": "Composing Programs, 3.ª ed. (DeNero, s. f.)",
+          "seccion": "1.7 Recursive Functions · Mutual Recursion",
+          "texto": "result = is_even(4)\n''', step=0, cumulative=False)\n\nMutually recursive functions can be turned into a single recursive function by breaking the abstraction boun"
+        },
+        {
+          "posicion": 4,
+          "similitud": 0.722,
+          "relevante": false,
+          "fuente": "Think Java, 2.ª ed. (Downey y Mayfield, 2019)",
+          "seccion": "Cap. 8: Métodos recursivos (8.2 a 8.4) · 8.4 The Leap of Faith",
+          "texto": "Recursive methods are no different. When you get to a recursive call, don’t think about the flow of execution. Instead, assume that the recursive call produces "
+        },
+        {
+          "posicion": 5,
+          "similitud": 0.722,
+          "relevante": false,
+          "fuente": "Think Python, 3.ª ed. (Downey, 2023)",
+          "seccion": "Cap. 5: Condicionales y recursividad (5.8 a 5.10) · 5.13. Glossary",
+          "texto": "recursive:\nA function that calls itself is recursive.\n\nbase case:\nA conditional branch in a recursive function that does not make a recursive call.\n\ninfinite re"
+        },
+        {
+          "posicion": 6,
+          "similitud": 0.716,
+          "relevante": false,
+          "fuente": "Composing Programs, 3.ª ed. (DeNero, s. f.)",
+          "seccion": "1.7 Recursive Functions · The Anatomy of Recursive Functions",
+          "texto": "Recursive functions leverage the rules of evaluating call expressions to bind names to values, often avoiding the nuisance of correctly assigning local names du"
+        }
+      ]
+    },
+    {
+      "id": "R13",
+      "tema": "Recursividad",
+      "consulta": "¿Qué es la recursión mutua entre dos funciones?",
+      "con_respuesta": true,
+      "suficiente": true,
+      "suficiencia_correcta": true,
+      "devueltos": 6,
+      "relevantes_devueltos": 2,
+      "posicion": 5,
+      "posicion_sin_umbral": 5,
+      "similitud_primer_relevante": 0.7,
+      "similitud_maxima": 0.72,
+      "concentracion": 0.667,
+      "con_ruido": 1,
+      "fragmentos": [
+        {
+          "posicion": 1,
+          "similitud": 0.72,
+          "relevante": false,
+          "fuente": "Composing Programs, 3.ª ed. (DeNero, s. f.)",
+          "seccion": "1.7 Recursive Functions · The Anatomy of Recursive Functions",
+          "texto": "Recursive functions leverage the rules of evaluating call expressions to bind names to values, often avoiding the nuisance of correctly assigning local names du"
+        },
+        {
+          "posicion": 2,
+          "similitud": 0.715,
+          "relevante": false,
+          "fuente": "Think Python, 3.ª ed. (Downey, 2023)",
+          "seccion": "Cap. 5: Condicionales y recursividad (5.8 a 5.10) · 5.13. Glossary",
+          "texto": "recursive:\nA function that calls itself is recursive.\n\nbase case:\nA conditional branch in a recursive function that does not make a recursive call.\n\ninfinite re"
+        },
+        {
+          "posicion": 3,
+          "similitud": 0.709,
+          "relevante": false,
+          "fuente": "Composing Programs, 3.ª ed. (DeNero, s. f.)",
+          "seccion": "1.7 Recursive Functions · 1.7 Recursive Functions",
+          "texto": "from pytutor import env_diagram\n\nA function is called recursive if the body of the function calls the function itself, either directly or indirectly. That is, t"
+        },
+        {
+          "posicion": 4,
+          "similitud": 0.703,
+          "relevante": false,
+          "fuente": "Apéndices I y II de Algorithms (Erickson, s. f.)",
+          "seccion": "Apéndice II: Solving Recurrences · pág. 1",
+          "texto": "Solving Recurrences\n/one.Alt.oldstyle Introduction\nArecurrenceis a recursive description of a function, or in other words, a description of a function\nin terms "
+        },
+        {
+          "posicion": 5,
+          "similitud": 0.7,
+          "relevante": true,
+          "fuente": "Composing Programs, 3.ª ed. (DeNero, s. f.)",
+          "seccion": "1.7 Recursive Functions · Mutual Recursion",
+          "texto": "When a recursive procedure is divided among two functions that call each other, the functions are said to be mutually recursive. As an example, consider the fol"
+        },
+        {
+          "posicion": 6,
+          "similitud": 0.695,
+          "relevante": true,
+          "fuente": "Composing Programs, 3.ª ed. (DeNero, s. f.)",
+          "seccion": "1.7 Recursive Functions · Mutual Recursion",
+          "texto": "result = is_even(4)\n''', step=0, cumulative=False)\n\nMutually recursive functions can be turned into a single recursive function by breaking the abstraction boun"
+        }
+      ]
+    },
+    {
+      "id": "R14",
+      "tema": "Recursividad",
+      "consulta": "¿Cómo sumo los elementos de una lista de forma recursiva?",
+      "con_respuesta": true,
+      "suficiente": true,
+      "suficiencia_correcta": true,
+      "devueltos": 6,
+      "relevantes_devueltos": 1,
+      "posicion": 5,
+      "posicion_sin_umbral": 5,
+      "similitud_primer_relevante": 0.637,
+      "similitud_maxima": 0.688,
+      "concentracion": 0.333,
+      "con_ruido": 1,
+      "fragmentos": [
+        {
+          "posicion": 1,
+          "similitud": 0.688,
+          "relevante": false,
+          "fuente": "Problem Solving with Algorithms and Data Structures using Python, 3.ª ed. (Miller y Ranum, 2014)",
+          "seccion": "4.4 The Three Laws of Recursion · 4.4. The Three Laws of Recursion",
+          "texto": "In the remainder of this chapter we will look at more examples of\nrecursion. In each case we will focus on designing a solution to a\nproblem by using the three "
+        },
+        {
+          "posicion": 2,
+          "similitud": 0.675,
+          "relevante": false,
+          "fuente": "Algorithms, 1.ª ed. (Erickson, 2019)",
+          "seccion": "Cap. 2: Backtracking · pág. 7",
+          "texto": "the main recursive case. Purely for the sake of e\u0000ciency , it is helpful to choose\nan element x such that the remaining subset X ∩{ x} has a concise description"
+        },
+        {
+          "posicion": 3,
+          "similitud": 0.653,
+          "relevante": false,
+          "fuente": "Introduction to Programming Using Java, versión 9 (Eck, 2022)",
+          "seccion": "Sección 9.1: Recursión · 9.1.1 Recursive Binary Search",
+          "texto": "under consideration, and either you've found the value you are looking for, or\nyou have to apply binary search to one half of the remaining elements. And so\non!"
+        },
+        {
+          "posicion": 4,
+          "similitud": 0.651,
+          "relevante": false,
+          "fuente": "Documentación de PostgreSQL, versión 18, sección 7.8",
+          "seccion": "7.8 WITH Queries (7.8.2 Recursive Queries) · 7.8.2. Recursive Queries",
+          "texto": "Evaluate the recursive term, substituting the current contents of the working table for the recursive self-reference. For UNION (but not UNION ALL), discard dup"
+        },
+        {
+          "posicion": 5,
+          "similitud": 0.637,
+          "relevante": true,
+          "fuente": "Problem Solving with Algorithms and Data Structures using Python, 3.ª ed. (Miller y Ranum, 2014)",
+          "seccion": "4.4 The Three Laws of Recursion · 4.4. The Three Laws of Recursion",
+          "texto": "6\n\nThere are only five numbers on the list, the number of recursive calls will not be greater than the size of the list.\n\n5\n\nThe initial call to list_sum is not"
+        },
+        {
+          "posicion": 6,
+          "similitud": 0.634,
+          "relevante": false,
+          "fuente": "Documentación de PostgreSQL, versión 18, sección 7.8",
+          "seccion": "7.8 WITH Queries (7.8.2 Recursive Queries) · 7.8.2. Recursive Queries",
+          "texto": "WITH RECURSIVE t(n) AS (\n    VALUES (1)\n  UNION ALL\n    SELECT n+1 FROM t WHERE n < 100\n)\nSELECT sum(n) FROM t;\n\nThe general form of a recursive WITH query is a"
+        }
+      ]
+    },
+    {
+      "id": "R15",
+      "tema": "Recursividad",
+      "consulta": "¿Qué significa el salto de fe cuando escribo una función recursiva?",
+      "con_respuesta": true,
+      "suficiente": true,
+      "suficiencia_correcta": true,
+      "devueltos": 6,
+      "relevantes_devueltos": 4,
+      "posicion": 1,
+      "posicion_sin_umbral": 1,
+      "similitud_primer_relevante": 0.728,
+      "similitud_maxima": 0.728,
+      "concentracion": 0.5,
+      "con_ruido": 0,
+      "fragmentos": [
+        {
+          "posicion": 1,
+          "similitud": 0.728,
+          "relevante": true,
+          "fuente": "Think Java, 2.ª ed. (Downey y Mayfield, 2019)",
+          "seccion": "Cap. 8: Métodos recursivos (8.2 a 8.4) · 8.4 The Leap of Faith",
+          "texto": "Following the flow of execution is one way to read programs, but it can quickly become overwhelming. Another way to understand recursion is the leap of faith: w"
+        },
+        {
+          "posicion": 2,
+          "similitud": 0.677,
+          "relevante": true,
+          "fuente": "Think Java, 2.ª ed. (Downey y Mayfield, 2019)",
+          "seccion": "Cap. 8: Métodos recursivos (8.2 a 8.4) · 8.9 Vocabulary",
+          "texto": "leap of faith:\n\nA way to read recursive programs by assuming that the recursive call works, rather than following the flow of execution.\n\nbinary:\n\nA system that"
+        },
+        {
+          "posicion": 3,
+          "similitud": 0.661,
+          "relevante": false,
+          "fuente": "Think Python, 3.ª ed. (Downey, 2023)",
+          "seccion": "Cap. 5: Condicionales y recursividad (5.8 a 5.10) · 5.13. Glossary",
+          "texto": "recursive:\nA function that calls itself is recursive.\n\nbase case:\nA conditional branch in a recursive function that does not make a recursive call.\n\ninfinite re"
+        },
+        {
+          "posicion": 4,
+          "similitud": 0.638,
+          "relevante": false,
+          "fuente": "Composing Programs, 3.ª ed. (DeNero, s. f.)",
+          "seccion": "1.7 Recursive Functions · The Anatomy of Recursive Functions",
+          "texto": "Recursive functions leverage the rules of evaluating call expressions to bind names to values, often avoiding the nuisance of correctly assigning local names du"
+        },
+        {
+          "posicion": 5,
+          "similitud": 0.635,
+          "relevante": true,
+          "fuente": "Think Java, 2.ª ed. (Downey y Mayfield, 2019)",
+          "seccion": "Cap. 8: Métodos recursivos (8.2 a 8.4) · 8.4 The Leap of Faith",
+          "texto": "If you try to follow the flow of execution here, even for small values of n, your head will explode. But if we take a leap of faith and assume that the two recu"
+        },
+        {
+          "posicion": 6,
+          "similitud": 0.635,
+          "relevante": true,
+          "fuente": "Think Python, 3.ª ed. (Downey, 2023)",
+          "seccion": "Cap. 6: Valores de retorno (6.6, 6.10 y ejercicios 6.12.4 y 6.12.5) · 6.7. Leap of faith",
+          "texto": "Following the flow of execution is one way to read programs, but it can quickly become overwhelming. An alternative is what I call the “leap of faith”. When you"
+        }
+      ]
+    },
+    {
+      "id": "S01",
+      "tema": "Sintaxis y estructuras de control",
+      "consulta": "¿Cuál es la diferencia entre un bucle while y un bucle for?",
+      "con_respuesta": true,
+      "suficiente": true,
+      "suficiencia_correcta": true,
+      "devueltos": 2,
+      "relevantes_devueltos": 1,
+      "posicion": 2,
+      "posicion_sin_umbral": 2,
+      "similitud_primer_relevante": 0.545,
+      "similitud_maxima": 0.55,
+      "concentracion": 0.5,
+      "con_ruido": 0,
+      "fragmentos": [
+        {
+          "posicion": 1,
+          "similitud": 0.55,
+          "relevante": false,
+          "fuente": "Documentación oficial de Python, versión 3.15",
+          "seccion": "4. Más herramientas para control de flujo · 4.5. Cláusulas else en bucles",
+          "texto": "In a for or while loop the break statement\nmay be paired with an else clause.  If the loop finishes without\nexecuting the break, the else clause executes.\n\nEn u"
+        },
+        {
+          "posicion": 2,
+          "similitud": 0.545,
+          "relevante": true,
+          "fuente": "Think Java, 2.ª ed. (Downey y Mayfield, 2019)",
+          "seccion": "Cap. 6: Bucles y cadenas · 6.6 Which Loop to Use",
+          "texto": "A while loop is “indefinite”, which means we don’t know how many times it will repeat. For example, when validating user input as in Section 5.9, it’s impossibl"
+        }
+      ]
+    },
+    {
+      "id": "S02",
+      "tema": "Sintaxis y estructuras de control",
+      "consulta": "¿Para qué sirven break y continue dentro de un bucle?",
+      "con_respuesta": true,
+      "suficiente": false,
+      "suficiencia_correcta": false,
+      "devueltos": 1,
+      "relevantes_devueltos": 1,
+      "posicion": 1,
+      "posicion_sin_umbral": 1,
+      "similitud_primer_relevante": 0.555,
+      "similitud_maxima": 0.555,
+      "concentracion": 1.0,
+      "con_ruido": 0,
+      "fragmentos": [
+        {
+          "posicion": 1,
+          "similitud": 0.555,
+          "relevante": true,
+          "fuente": "Documentación oficial de Python, versión 3.15",
+          "seccion": "4. Más herramientas para control de flujo · 4.5. Cláusulas else en bucles",
+          "texto": "In a for or while loop the break statement\nmay be paired with an else clause.  If the loop finishes without\nexecuting the break, the else clause executes.\n\nEn u"
+        }
+      ]
+    },
+    {
+      "id": "S03",
+      "tema": "Sintaxis y estructuras de control",
+      "consulta": "¿Cómo funciona la sentencia switch en Java?",
+      "con_respuesta": true,
+      "suficiente": false,
+      "suficiencia_correcta": false,
+      "devueltos": 0,
+      "relevantes_devueltos": 0,
+      "posicion": null,
+      "posicion_sin_umbral": 3,
+      "similitud_primer_relevante": 0.48,
+      "similitud_maxima": 0.489,
+      "concentracion": null,
+      "con_ruido": 0,
+      "fragmentos": []
+    },
+    {
+      "id": "L01",
+      "tema": "Estructuras de datos lineales",
+      "consulta": "¿Qué diferencia hay entre una pila y una cola?",
+      "con_respuesta": true,
+      "suficiente": false,
+      "suficiencia_correcta": false,
+      "devueltos": 0,
+      "relevantes_devueltos": 0,
+      "posicion": null,
+      "posicion_sin_umbral": 1,
+      "similitud_primer_relevante": 0.411,
+      "similitud_maxima": 0.411,
+      "concentracion": null,
+      "con_ruido": 0,
+      "fragmentos": []
+    },
+    {
+      "id": "L02",
+      "tema": "Estructuras de datos lineales",
+      "consulta": "¿Cómo uso una lista de Python como si fuera una pila?",
+      "con_respuesta": true,
+      "suficiente": true,
+      "suficiencia_correcta": true,
+      "devueltos": 6,
+      "relevantes_devueltos": 2,
+      "posicion": 1,
+      "posicion_sin_umbral": 1,
+      "similitud_primer_relevante": 0.732,
+      "similitud_maxima": 0.732,
+      "concentracion": 0.5,
+      "con_ruido": 0,
+      "fragmentos": [
+        {
+          "posicion": 1,
+          "similitud": 0.732,
+          "relevante": true,
+          "fuente": "Problem Solving with Algorithms and Data Structures using Python, 3.ª ed. (Miller y Ranum, 2014)",
+          "seccion": "3.5 Implementing a Stack in Python · 3.5. Implementing a Stack in Python",
+          "texto": "Recall that the list class in Python provides an ordered collection\nmechanism and a set of methods. For example, if we have the list\n[2, 5, 3, 6, 7, 4], we need"
+        },
+        {
+          "posicion": 2,
+          "similitud": 0.709,
+          "relevante": true,
+          "fuente": "Problem Solving with Algorithms and Data Structures using Python, 3.ª ed. (Miller y Ranum, 2014)",
+          "seccion": "3.5 Implementing a Stack in Python · 3.5. Implementing a Stack in Python",
+          "texto": "and simplicity of the primitive collections provided by Python. We will\nuse a list."
+        },
+        {
+          "posicion": 3,
+          "similitud": 0.651,
+          "relevante": false,
+          "fuente": "Problem Solving with Algorithms and Data Structures using Python, 3.ª ed. (Miller y Ranum, 2014)",
+          "seccion": "3.3 Stacks · 3.3. Stacks",
+          "texto": "Figure 1: A Stack of Books\n\nFigure 2: A Stack of Primitive Python Data Objects"
+        },
+        {
+          "posicion": 4,
+          "similitud": 0.646,
+          "relevante": false,
+          "fuente": "Documentación oficial de Python, versión 3.15",
+          "seccion": "5. Estructuras de datos · 5.4. Conjuntos",
+          "texto": "Python also includes a data type for sets.  A set is\nan unordered collection with no duplicate elements.  Basic uses include\nmembership testing and eliminating "
+        },
+        {
+          "posicion": 5,
+          "similitud": 0.639,
+          "relevante": false,
+          "fuente": "Documentación oficial de Python, versión 3.15",
+          "seccion": "5. Estructuras de datos · 5.1.3. Comprensión de listas",
+          "texto": "Las comprensiones de listas ofrecen una manera concisa de crear listas. Sus usos comunes son para hacer nuevas listas donde cada elemento es el resultado de alg"
+        },
+        {
+          "posicion": 6,
+          "similitud": 0.633,
+          "relevante": false,
+          "fuente": "Documentación oficial de Python, versión 3.15",
+          "seccion": "5. Estructuras de datos · 5.3. Tuplas y secuencias",
+          "texto": "Vimos que las listas y cadenas tienen propiedades en común, como el indexado y las operaciones de rebanado. Estas son dos ejemplos de datos de tipo secuencia (v"
+        }
+      ]
+    },
+    {
+      "id": "L03",
+      "tema": "Estructuras de datos lineales",
+      "consulta": "¿Cómo recorro todos los elementos de un arreglo en Java?",
+      "con_respuesta": true,
+      "suficiente": false,
+      "suficiencia_correcta": false,
+      "devueltos": 0,
+      "relevantes_devueltos": 0,
+      "posicion": null,
+      "posicion_sin_umbral": 1,
+      "similitud_primer_relevante": 0.476,
+      "similitud_maxima": 0.476,
+      "concentracion": null,
+      "con_ruido": 0,
+      "fragmentos": []
+    },
+    {
+      "id": "B01",
+      "tema": "Búsqueda y ordenamiento",
+      "consulta": "¿Cómo funciona la búsqueda binaria y por qué la lista tiene que estar ordenada?",
+      "con_respuesta": true,
+      "suficiente": true,
+      "suficiencia_correcta": true,
+      "devueltos": 6,
+      "relevantes_devueltos": 5,
+      "posicion": 1,
+      "posicion_sin_umbral": 1,
+      "similitud_primer_relevante": 0.796,
+      "similitud_maxima": 0.796,
+      "concentracion": 0.667,
+      "con_ruido": 0,
+      "fragmentos": [
+        {
+          "posicion": 1,
+          "similitud": 0.796,
+          "relevante": true,
+          "fuente": "Introduction to Programming Using Java, versión 9 (Eck, 2022)",
+          "seccion": "Sección 7.5: Searching and Sorting · 7.5.1 Searching",
+          "texto": "Binary search is a method for searching for a\ngiven item in a sorted array. Although the implementation is not\ntrivial, the basic idea is simple: If you are sea"
+        },
+        {
+          "posicion": 2,
+          "similitud": 0.773,
+          "relevante": true,
+          "fuente": "Problem Solving with Algorithms and Data Structures using Python, 3.ª ed. (Miller y Ranum, 2014)",
+          "seccion": "5.4 The Binary Search · 5.4.1. Analysis of Binary Search",
+          "texto": "12, 6, 11, 8\n\nBinary search starts at the midpoint and halves the list each time.\n\n3, 5, 6, 8\n\nBinary search does not start at the beginning and search sequenti"
+        },
+        {
+          "posicion": 3,
+          "similitud": 0.725,
+          "relevante": true,
+          "fuente": "Problem Solving with Algorithms and Data Structures using Python, 3.ª ed. (Miller y Ranum, 2014)",
+          "seccion": "5.4 The Binary Search · 5.4. The Binary Search",
+          "texto": "Figure 3: Binary Search of an Ordered List of Integers\n\nActivity: CodeLens Binary Search of an Ordered List (search3)"
+        },
+        {
+          "posicion": 4,
+          "similitud": 0.701,
+          "relevante": true,
+          "fuente": "Problem Solving with Algorithms and Data Structures using Python, 3.ª ed. (Miller y Ranum, 2014)",
+          "seccion": "5.4 The Binary Search · 5.4. The Binary Search",
+          "texto": "It is possible to take greater advantage of the ordered list if we are\nclever with our comparisons. In the sequential search, when we compare\nagainst the first "
+        },
+        {
+          "posicion": 5,
+          "similitud": 0.695,
+          "relevante": true,
+          "fuente": "Problem Solving with Algorithms and Data Structures using Python, 3.ª ed. (Miller y Ranum, 2014)",
+          "seccion": "5.4 The Binary Search · 5.4. The Binary Search",
+          "texto": "middle item. If the item we are searching for is less than the middle\nitem, we can simply perform a binary search of the left half of the\noriginal list. Likewis"
+        },
+        {
+          "posicion": 6,
+          "similitud": 0.693,
+          "relevante": false,
+          "fuente": "Introduction to Programming Using Java, versión 9 (Eck, 2022)",
+          "seccion": "Sección 7.5: Searching and Sorting · 7.5.2 Association Lists",
+          "texto": "This phone directory implementation could be improved by using\nbinary search instead of simple linear search in the find()\nmethod. However, we could only do tha"
+        }
+      ]
+    },
+    {
+      "id": "B02",
+      "tema": "Búsqueda y ordenamiento",
+      "consulta": "¿Cómo funciona el ordenamiento burbuja?",
+      "con_respuesta": true,
+      "suficiente": true,
+      "suficiencia_correcta": true,
+      "devueltos": 6,
+      "relevantes_devueltos": 6,
+      "posicion": 1,
+      "posicion_sin_umbral": 1,
+      "similitud_primer_relevante": 0.688,
+      "similitud_maxima": 0.688,
+      "concentracion": 1.0,
+      "con_ruido": 0,
+      "fragmentos": [
+        {
+          "posicion": 1,
+          "similitud": 0.688,
+          "relevante": true,
+          "fuente": "Problem Solving with Algorithms and Data Structures using Python, 3.ª ed. (Miller y Ranum, 2014)",
+          "seccion": "5.7 The Bubble Sort · 5.7. The Bubble Sort",
+          "texto": "The bubble sort makes multiple passes through a list. It compares\nadjacent items and exchanges those that are out of order. Each pass\nthrough the list places th"
+        },
+        {
+          "posicion": 2,
+          "similitud": 0.639,
+          "relevante": true,
+          "fuente": "Problem Solving with Algorithms and Data Structures using Python, 3.ª ed. (Miller y Ranum, 2014)",
+          "seccion": "5.7 The Bubble Sort · 5.7. The Bubble Sort",
+          "texto": "A bubble sort is often considered the most inefficient sorting method\nsince it must exchange items before the final location is known. These\n“wasted” exchange o"
+        },
+        {
+          "posicion": 3,
+          "similitud": 0.603,
+          "relevante": true,
+          "fuente": "Problem Solving with Algorithms and Data Structures using Python, 3.ª ed. (Miller y Ranum, 2014)",
+          "seccion": "5.7 The Bubble Sort · 5.7. The Bubble Sort",
+          "texto": "shows the complete bubble_sort function. It takes the list as a\nparameter and modifies it by exchanging items as necessary."
+        },
+        {
+          "posicion": 4,
+          "similitud": 0.599,
+          "relevante": true,
+          "fuente": "Problem Solving with Algorithms and Data Structures using Python, 3.ª ed. (Miller y Ranum, 2014)",
+          "seccion": "5.7 The Bubble Sort · 5.7. The Bubble Sort",
+          "texto": "Figure 1: Bubble Sort: The First Pass"
+        },
+        {
+          "posicion": 5,
+          "similitud": 0.55,
+          "relevante": true,
+          "fuente": "Problem Solving with Algorithms and Data Structures using Python, 3.ª ed. (Miller y Ranum, 2014)",
+          "seccion": "5.7 The Bubble Sort · 5.7. The Bubble Sort",
+          "texto": "To analyze the bubble sort, we should note that regardless of how the\nitems are arranged in the initial list, \\(n - 1\\) passes will be\nmade to sort a list of si"
+        },
+        {
+          "posicion": 6,
+          "similitud": 0.519,
+          "relevante": true,
+          "fuente": "Problem Solving with Algorithms and Data Structures using Python, 3.ª ed. (Miller y Ranum, 2014)",
+          "seccion": "5.7 The Bubble Sort · 5.7. The Bubble Sort",
+          "texto": "Figure 1 shows the first pass of a bubble sort. The shaded\nitems are being compared to see if they are out of order. If there are\n\\(n\\) items in the list, then "
+        }
+      ]
+    },
+    {
+      "id": "B03",
+      "tema": "Búsqueda y ordenamiento",
+      "consulta": "¿Qué diferencia hay entre el ordenamiento por inserción y el de selección?",
+      "con_respuesta": true,
+      "suficiente": false,
+      "suficiencia_correcta": false,
+      "devueltos": 1,
+      "relevantes_devueltos": 1,
+      "posicion": 1,
+      "posicion_sin_umbral": 1,
+      "similitud_primer_relevante": 0.519,
+      "similitud_maxima": 0.519,
+      "concentracion": 1.0,
+      "con_ruido": 0,
+      "fragmentos": [
+        {
+          "posicion": 1,
+          "similitud": 0.519,
+          "relevante": true,
+          "fuente": "Introduction to Programming Using Java, versión 9 (Eck, 2022)",
+          "seccion": "Sección 7.5: Searching and Sorting · 7.5.3 Insertion Sort",
+          "texto": "We've seen that there are good reasons for sorting arrays. There are many\nalgorithms available for doing so. One of the easiest to understand is the\ninsertion s"
+        }
+      ]
+    },
+    {
+      "id": "N01",
+      "tema": "Recursividad",
+      "consulta": "¿Cómo armo una ventana con botones en una interfaz gráfica?",
+      "con_respuesta": false,
+      "suficiente": false,
+      "suficiencia_correcta": true,
+      "devueltos": 0,
+      "relevantes_devueltos": 0,
+      "posicion": null,
+      "posicion_sin_umbral": null,
+      "similitud_primer_relevante": null,
+      "similitud_maxima": 0.395,
+      "concentracion": null,
+      "con_ruido": 0,
+      "fragmentos": []
+    },
+    {
+      "id": "N02",
+      "tema": "Recursividad",
+      "consulta": "¿Qué diferencia hay entre una clase abstracta y una interfaz en Java?",
+      "con_respuesta": false,
+      "suficiente": false,
+      "suficiencia_correcta": true,
+      "devueltos": 0,
+      "relevantes_devueltos": 0,
+      "posicion": null,
+      "posicion_sin_umbral": null,
+      "similitud_primer_relevante": null,
+      "similitud_maxima": 0.429,
+      "concentracion": null,
+      "con_ruido": 0,
+      "fragmentos": []
+    },
+    {
+      "id": "N03",
+      "tema": "Sintaxis y estructuras de control",
+      "consulta": "¿Cómo hago que una clase herede los métodos de otra?",
+      "con_respuesta": false,
+      "suficiente": true,
+      "suficiencia_correcta": false,
+      "devueltos": 4,
+      "relevantes_devueltos": 0,
+      "posicion": null,
+      "posicion_sin_umbral": null,
+      "similitud_primer_relevante": null,
+      "similitud_maxima": 0.634,
+      "concentracion": 0.75,
+      "con_ruido": 0,
+      "fragmentos": [
+        {
+          "posicion": 1,
+          "similitud": 0.634,
+          "relevante": false,
+          "fuente": "Documentación oficial de Python, versión 3.15",
+          "seccion": "4. Más herramientas para control de flujo · 4.10. Intermezzo: Estilo de programación",
+          "texto": "Nombrar las clases y funciones consistentemente; la convención es usar NotacionCamello para clases y minusculas_con_guiones_bajos para funciones y métodos. Siem"
+        },
+        {
+          "posicion": 2,
+          "similitud": 0.58,
+          "relevante": false,
+          "fuente": "Documentación oficial de Python, versión 3.15",
+          "seccion": "4. Más herramientas para control de flujo · 4.7. La sentencia match",
+          "texto": "Si estás usando clases para estructurar tus datos, puedes usar el nombre de la clase seguida de una lista de argumentos similar a la de un constructor, pero con"
+        },
+        {
+          "posicion": 3,
+          "similitud": 0.554,
+          "relevante": false,
+          "fuente": "Think Java, 2.ª ed. (Downey y Mayfield, 2019)",
+          "seccion": "Cap. 2: Variables y operadores · Notices",
+          "texto": "To run the examples in this chapter, you will need to create a new Java class with a main method (see Section 1.3). Throughout the book, we often omit class and"
+        },
+        {
+          "posicion": 4,
+          "similitud": 0.537,
+          "relevante": false,
+          "fuente": "Documentación oficial de Python, versión 3.15",
+          "seccion": "4. Más herramientas para control de flujo · 4.8. Definir funciones",
+          "texto": "the same name without causing ambiguity.  (It is possible to define your own\nobject types and methods, using classes, see Clases)\nThe method append() shown in t"
+        }
+      ]
+    },
+    {
+      "id": "N04",
+      "tema": "Estructuras de datos lineales",
+      "consulta": "¿Cómo funciona una tabla hash y qué pasa cuando hay colisiones?",
+      "con_respuesta": false,
+      "suficiente": false,
+      "suficiencia_correcta": true,
+      "devueltos": 0,
+      "relevantes_devueltos": 0,
+      "posicion": null,
+      "posicion_sin_umbral": null,
+      "similitud_primer_relevante": null,
+      "similitud_maxima": 0.417,
+      "concentracion": null,
+      "con_ruido": 0,
+      "fragmentos": []
+    },
+    {
+      "id": "N05",
+      "tema": "Búsqueda y ordenamiento",
+      "consulta": "¿Cómo funciona el merge sort y por qué es O(n log n)?",
+      "con_respuesta": false,
+      "suficiente": false,
+      "suficiencia_correcta": true,
+      "devueltos": 1,
+      "relevantes_devueltos": 0,
+      "posicion": null,
+      "posicion_sin_umbral": null,
+      "similitud_primer_relevante": null,
+      "similitud_maxima": 0.546,
+      "concentracion": 1.0,
+      "con_ruido": 0,
+      "fragmentos": [
+        {
+          "posicion": 1,
+          "similitud": 0.546,
+          "relevante": false,
+          "fuente": "Problem Solving with Algorithms and Data Structures using Python, 3.ª ed. (Miller y Ranum, 2014)",
+          "seccion": "5.4 The Binary Search · 5.4.1. Analysis of Binary Search",
+          "texto": "logarithmic with respect to the number of items in the list. Therefore,\nthe binary search is \\(O(\\log{n})\\)."
+        }
+      ]
+    }
+  ]
+}

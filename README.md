@@ -133,7 +133,13 @@ Se cargan una vez, desde `backend/` (descarga las páginas y PDF, registra cada 
 ```bash
 python -m app.fuentes                 # descarga lo que falte y lo indexa (python -m app.fuentes --forzar: todo de nuevo)
 python -m app.buscar "Recursividad" "¿para qué sirve el caso base?"   # prueba de recuperación
+python -m app.evaluar linea-base      # mide la recuperación con evaluacion/consultas.json
 ```
+
+`backend/evaluacion/consultas.json` es el conjunto de prueba de la recuperación: 29 consultas en español (5 sin respuesta
+en las fuentes) con los criterios que definen qué fragmentos las responden. `python -m app.evaluar <etiqueta>` informa
+acierto@1 y @3, MRR, precisión, si "suficiente" es correcto, concentración por fuente y ruido, y guarda el detalle con
+los parámetros usados en `backend/evaluacion/resultados/<etiqueta>.json`, para comparar cada cambio contra la línea base.
 
 ## 8. Próximos pasos
 
