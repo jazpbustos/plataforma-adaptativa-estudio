@@ -25,7 +25,8 @@ def main(tema: str, pregunta: str) -> None:
     for i, f in enumerate(r["fragmentos"], 1):
         lugar = f" · {f['pagina_o_seccion']}" if f["pagina_o_seccion"] else ""
         unidos = f" · {len(f['recuperados'])} fragmentos recuperados" if len(f["recuperados"]) > 1 else ""
-        print(f"\n{i}. [{f['similitud']:.2f}] {f['nombre_archivo']}{lugar}{unidos}")
+        reranking = f" · re-ranking {f['puntaje_reranking']:.2f}" if "puntaje_reranking" in f else ""
+        print(f"\n{i}. [{f['similitud']:.2f}{reranking}] {f['nombre_archivo']}{lugar}{unidos}")
         print(f"   Fragmento comparado: {f['texto_original'][:200]}…")
         print("   Contexto:\n      " + f["contexto"].replace("\n", "\n      "))
 

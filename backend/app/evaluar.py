@@ -104,7 +104,8 @@ def medir(consulta: dict, fragmentos: list[dict], todos: list[dict]) -> dict:
         "suficiente": sum(len(f.get("recuperados", [None])) for f in fragmentos) >= R["fragmentos_minimos"],
         "devueltos": len(fragmentos),
         "concentracion": fuentes.most_common(1)[0][1] / len(fragmentos) if fragmentos else None,
-        "similitud_maxima": todos[0]["similitud"] if todos else None,
+        # El máximo y no el primero: con re-ranking, el primero no es necesariamente el más similar.
+        "similitud_maxima": max(f["similitud"] for f in todos) if todos else None,
     }
 
 
@@ -196,12 +197,19 @@ def agregar_al_informe(etiqueta: str, contenido: str, informe: Path = INFORME) -
                            "con los parámetros de `parametros.toml` vigentes en ese momento.\n", encoding="utf-8")
     fecha = datetime.now().strftime("%Y-%m-%d %H:%M")
     parametros = ", ".join(f"{k} = {R[k]}" for k in ("tam_fragmento", "solapamiento", "k_por_fuente", "candidatos",
-                                                      "max_por_origen", "vecinos", "similitud_minima",
+                                                      "max_por_origen", "reranking", "vecinos", "similitud_minima",
                                                       "fragmentos_minimos") if k in R)
     with informe.open("a", encoding="utf-8") as f:
         f.write(f"\n## {etiqueta} · {fecha}\n\nParámetros: {parametros}; modelo {R['modelo_embeddings']}; "
                 f"{len(rag.almacen().get(where={'fuente': rag.ACADEMICA})['ids'])} fragmentos académicos.\n\n"
                 f"{contenido}\n")
+
+
+def convertir(valor: str, actual):
+    """El valor de --param con el tipo del parámetro actual. bool("false") daría True: se interpreta aparte."""
+    if isinstance(actual, bool):
+        return valor.strip().lower() in ("true", "1", "sí", "si")
+    return type(actual)(valor)
 
 
 def main(argv: list[str] | None = None) -> dict:
@@ -215,7 +223,7 @@ def main(argv: list[str] | None = None) -> dict:
         nombre, _, valor = p.partition("=")
         if nombre not in R:
             sys.exit(f"Parámetro desconocido en [rag]: {nombre}")
-        R[nombre] = type(R[nombre])(valor)
+        R[nombre] = convertir(valor, R[nombre])
     actual = R["similitud_minima"]
     umbrales = sorted({float(u) for u in args.umbrales.split(",")} | {actual}) if args.umbrales else [actual]
 

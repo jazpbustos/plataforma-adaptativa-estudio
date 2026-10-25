@@ -353,6 +353,64 @@ def test_maximo_por_origen_del_material_propio_es_configurable(client, monkeypat
     assert len(rag.buscar(tema, "el caso base detiene la recursión", [50], minima=0)) == 1
 
 
+# ---------------- Re-ranking con cross-encoder ----------------
+
+def prefiere(palabra):
+    """Cross-encoder falso que solo valora los fragmentos que contienen `palabra` (y más si es más corto)."""
+    return lambda consulta, textos: [(10 - len(t) / 100) if palabra in t else -1.0 for t in textos]
+
+
+@pytest.fixture()
+def recursion_infinita(client):
+    """Dos fragmentos generales muy parecidos a la consulta y uno menos parecido que la responde."""
+    tema = id_tema("Recursividad")
+    academica(tema, "qué pasa si una función recursiva no tiene caso base: glosario de recursión", 1)
+    academica(tema, "una función recursiva tiene caso base y caso recursivo, qué pasa en cada llamada", 2)
+    academica(tema, "Sin caso base la recursión es infinita y Python lanza RecursionError", 3)
+    return tema
+
+
+def test_el_reranking_reordena_los_candidatos(recursion_infinita, monkeypatch):
+    consulta = "qué pasa si una función recursiva no tiene caso base"
+    monkeypatch.setitem(rag.R, "reranking", False)
+    assert rag.buscar(recursion_infinita, consulta, [], minima=0)[0]["id_origen"] == 1  # por similitud
+    monkeypatch.setitem(rag.R, "reranking", True)
+    monkeypatch.setattr(rag, "reordenador", prefiere("infinita"))
+    r = rag.buscar(recursion_infinita, consulta, [], minima=0)
+    assert r[0]["id_origen"] == 3 and r[0]["puntaje_reranking"] > r[1]["puntaje_reranking"]
+    assert r[0]["similitud"] < r[1]["similitud"]  # la similitud se conserva: es la que se cita y filtra
+
+
+def test_el_reranking_no_recupera_lo_que_el_umbral_descarto(recursion_infinita, monkeypatch):
+    consulta = "qué pasa si una función recursiva no tiene caso base"
+    sims = {f["id_origen"]: f["similitud"] for f in rag.buscar(recursion_infinita, consulta, [], minima=0)}
+    monkeypatch.setattr(rag, "reordenador", prefiere("infinita"))
+    r = rag.buscar(recursion_infinita, consulta, [], minima=sims[3] + 0.001)
+    assert 3 not in [f["id_origen"] for f in r] and r  # el umbral se aplica a la similitud, antes de reordenar
+
+
+def test_la_diversidad_se_aplica_despues_del_reranking(libro_grande, monkeypatch):
+    monkeypatch.setitem(rag.R, "max_por_origen", 2)
+    monkeypatch.setattr(rag, "reordenador", prefiere("fuente"))  # prefiere a los orígenes 2 a 4
+    origenes = [f["id_origen"] for f in rag.buscar(libro_grande, "el caso base detiene la recursión", [], minima=0)]
+    assert sorted(origenes[:3]) == [2, 3, 4] and origenes[3:] == [1, 1]
+
+
+def test_propios_y_academicos_se_ordenan_juntos_por_el_reranking(client, monkeypatch):
+    tema = id_tema("Recursividad")
+    academica(tema, "El caso base detiene la recursión y evita llamadas infinitas.", 1)
+    rag.indexar([rag.Seccion("Mi apunte: el caso base es la condición de corte.", "pág. 1")], id_origen=9,
+                id_tema=tema, fuente=rag.PROPIA, nombre_archivo="apunte.pdf", prefijo="m9")
+    monkeypatch.setattr(rag, "reordenador", prefiere("apunte"))
+    assert [f["fuente"] for f in rag.buscar(tema, "el caso base detiene la recursión", [9], minima=0)] == ["propia", "académica"]
+
+
+def test_convertir_parametros_de_la_evaluacion():
+    from app.evaluar import convertir
+    assert convertir("false", True) is False and convertir("true", False) is True
+    assert convertir("3", 2) == 3 and convertir("0.45", 0.5) == 0.45
+
+
 def test_material_insuficiente(client):
     tema = id_tema("Recursividad")
     academica(tema, "El caso base detiene la recursión y evita llamadas infinitas.", 1)

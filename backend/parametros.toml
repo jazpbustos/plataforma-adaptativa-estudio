@@ -26,7 +26,8 @@ tam_fragmento = 400                  # caracteres: entra completo en los 128 tok
 solapamiento = 60
 max_ilegible = 0.5                   # si la mitad o más de una línea son glifos ilegibles del PDF (U+FFFF), se descarta la línea
 fragmento_minimo = 30               # más corto que esto (un título suelto) no se indexa si el archivo tiene más texto
-candidatos = 20                      # se piden más fragmentos a ChromaDB para poder elegir 6 de orígenes distintos
+candidatos = 20                      # se piden más fragmentos a ChromaDB: el re-ranking los reordena y la diversidad elige 6
+reranking = true                     # reordenar los candidatos con el cross-encoder (con 40 candidatos: el doble de tiempo, igual acierto@1)
 max_por_origen = 3                   # fuentes académicas: como mucho 3 de los 6 de un mismo libro (con 2 se pierden respuestas: ver informe)
 max_por_origen_propio = 0            # material propio: sin máximo (0); los apuntes del estudiante suelen ser pocos
 k_por_fuente = 6                    # fragmentos más similares de cada fuente (propia y académica)
@@ -34,6 +35,7 @@ similitud_minima = 0.5               # coseno; calibrado con consultas de la mat
 vecinos = 1                          # al recuperar, se agregan los fragmentos anterior y siguiente como contexto
 fragmentos_minimos = 2              # HU-003 CA5: con menos, el material es insuficiente
 modelo_embeddings = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+modelo_reranking = "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"   # cross-encoder multilingüe, Apache 2.0, ~470 MB (ONNX)
 
 [llm]                                # Herramientas de Desarrollo: criterio de asignación de modelos
 modelo_contenido = "claude-sonnet-5-5"   # contenido, contraste de fuentes y evaluación de explicaciones

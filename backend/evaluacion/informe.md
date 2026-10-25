@@ -304,3 +304,56 @@ que los fragmentos generales que ocupan los primeros puestos (el glosario y Leap
 Recursive Functions de Composing Programs), y el límite deja afuera justamente a la respuesta. Con máximo 3 ninguna
 consulta recibe más de la mitad de sus fragmentos de un mismo libro y no se pierde ningún acierto. Pedir 40 candidatos en
 lugar de 20 no cambia el resultado: los lugares libres ya se completan con 20.
+
+## re-ranking · 2026-10-25 12:30
+
+Parámetros: tam_fragmento = 400, solapamiento = 60, k_por_fuente = 6, candidatos = 20, max_por_origen = 3, reranking = True, vecinos = 1, similitud_minima = 0.5, fragmentos_minimos = 2; modelo sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2; 3212 fragmentos académicos.
+
+| umbral | acierto@1 | acierto@6 | mrr | positivas suficientes | rechazo de negativas | concentración |
+|---|---|---|---|---|---|---|
+| 0.4 | 0.792 | 0.958 | 0.856 | 0.958 | 0.6 | 0.552 |
+| 0.45 | 0.75 | 0.917 | 0.821 | 0.958 | 0.8 | 0.549 |
+| **0.5** (actual) | 0.625 | 0.792 | 0.696 | 0.792 | 0.8 | 0.533 |
+| 0.55 | 0.583 | 0.708 | 0.633 | 0.75 | 0.8 | 0.524 |
+| 0.6 | 0.542 | 0.667 | 0.592 | 0.708 | 1 | 0.504 |
+
+Similitud del fragmento más parecido (sin umbral):
+
+| consultas | n | mínimo | máximo | promedio |
+|---|---|---|---|---|
+| positivas | 24 | 0.411 | 0.89 | 0.671 |
+| negativas | 5 | 0.353 | 0.634 | 0.435 |
+
+Detalle por consulta (posición del primer acierto con el umbral 0.5 y sin umbral):
+
+| id | consulta | pos. | pos. sin umbral | sim. máx. | sim. 1.er acierto | suficiente | primer fragmento |
+|---|---|---|---|---|---|---|---|
+| R01 | ¿Qué es el caso base y por qué toda función recursiva lo necesita? | 1 | 1 | 0.784 | 0.762 | sí | Composing Programs · unctions · The Anatomy of Recursive Functions |
+| R02 | ¿Qué es el caso recursivo y cómo hace para acercarse al caso base? | 1 | 1 | 0.738 | 0.688 | sí | Composing Programs · unctions · The Anatomy of Recursive Functions |
+| R03 | ¿Qué pasa si una función recursiva no tiene caso base? | 1 | 1 | 0.817 | 0.759 | sí | Think Python · vidad (5.8 a 5.10) · 5.10. Infinite recursion |
+| R04 | ¿Cómo se guarda cada llamada recursiva en la pila de llamadas? | – | – | 0.713 | – | sí | Composing Programs · e Functions · Printing in Recursive Functions |
+| R05 | ¿Qué error tira Python cuando hay un desbordamiento de pila por demasiadas llamadas recursivas? | 1 | 1 | 0.771 | 0.771 | sí | Documentación oficial de Python · ímite de recursión) · sys.getrecursionlimit() |
+| R06 | ¿Cómo cambio el límite de recursión en Python? | 1 | 1 | 0.89 | 0.89 | sí | Documentación oficial de Python · ímite de recursión) · sys.getrecursionlimit() |
+| R07 | ¿Cómo se calcula el factorial de un número con una función recursiva? | 1 | 1 | 0.765 | 0.765 | sí | Composing Programs · unctions · The Anatomy of Recursive Functions |
+| R08 | ¿Por qué el Fibonacci recursivo es tan lento y repite cálculos? | 1 | 1 | 0.77 | 0.721 | sí | Structure and Interpretation of Computer Programs ·  They Generate (1.2.1) · 1.2.2 Tree Recursion |
+| R09 | ¿Cómo se resuelven las torres de Hanoi con recursión? | 1 | 1 | 0.641 | 0.641 | sí | Algorithms · Cap. 1: Recursion · pág. 6 |
+| R10 | ¿Qué es la recursión de cola? | 2 | 2 | 0.748 | 0.643 | sí | Structure and Interpretation of Computer Programs · They Generate (1.2.1) · Probabilistic methods |
+| R11 | ¿Qué es la memoización y cómo evita recalcular resultados? | – | 1 | 0.595 | 0.459 | sí | Problem Solving with Algorithms and Data Structures using Python · namic Programming · 4.12. Dynamic Programming |
+| R12 | ¿Cómo convierto una función recursiva en una iterativa con un bucle? | 5 | 5 | 0.717 | 0.68 | sí | Composing Programs · unctions · The Anatomy of Recursive Functions |
+| R13 | ¿Qué es la recursión mutua entre dos funciones? | 1 | 1 | 0.703 | 0.7 | sí | Composing Programs · 1.7 Recursive Functions · Mutual Recursion |
+| R14 | ¿Cómo sumo los elementos de una lista de forma recursiva? | 1 | 1 | 0.653 | 0.633 | sí | Problem Solving with Algorithms and Data Structures using Python · 4.3. Calculating the Sum of a List of Numbers |
+| R15 | ¿Qué significa el salto de fe cuando escribo una función recursiva? | 2 | 2 | 0.728 | 0.635 | sí | Think Java · todos recursivos (8.2 a 8.4) · 8.9 Vocabulary |
+| S01 | ¿Cuál es la diferencia entre un bucle while y un bucle for? | 2 | 2 | 0.55 | 0.375 | sí | Documentación oficial de Python · trol de flujo · 4.5. Cláusulas else en bucles |
+| S02 | ¿Para qué sirven break y continue dentro de un bucle? | 1 | 1 | 0.47 | 0.434 | no ✗ | Documentación oficial de Python ·  flujo · 4.4. Las sentencias break y continue |
+| S03 | ¿Cómo funciona la sentencia switch en Java? | – | 1 | 0.48 | 0.48 | no ✗ | Think Java · icionales y lógica · 5.4 The switch Statement |
+| L01 | ¿Qué diferencia hay entre una pila y una cola? | – | 1 | 0.411 | 0.411 | no ✗ | Introduction to Programming Using Java ·  9.3: Stacks, Queues, and ADTs · 9.3.2 Queues |
+| L02 | ¿Cómo uso una lista de Python como si fuera una pila? | 1 | 1 | 0.732 | 0.732 | sí | Problem Solving with Algorithms and Data Structures using Python ·  Python · 3.5. Implementing a Stack in Python |
+| L03 | ¿Cómo recorro todos los elementos de un arreglo en Java? | – | 1 | 0.474 | 0.474 | no ✗ | Think Java · los y referencias · 7.8 The Enhanced for Loop |
+| B01 | ¿Cómo funciona la búsqueda binaria y por qué la lista tiene que estar ordenada? | 1 | 1 | 0.796 | 0.796 | sí | Introduction to Programming Using Java ·  7.5: Searching and Sorting · 7.5.1 Searching |
+| B02 | ¿Cómo funciona el ordenamiento burbuja? | 1 | 1 | 0.688 | 0.688 | sí | Problem Solving with Algorithms and Data Structures using Python · 5.7 The Bubble Sort · 5.7. The Bubble Sort |
+| B03 | ¿Qué diferencia hay entre el ordenamiento por inserción y el de selección? | 1 | 1 | 0.467 | 0.467 | no ✗ | Introduction to Programming Using Java ·  Searching and Sorting · 7.5.4 Selection Sort |
+| N01 | ¿Cómo funciona una tabla hash? | – | – | 0.353 | – | no | Documentación de PostgreSQL · .8.3. Common Table Expression Materialization |
+| N02 | ¿Cómo funciona el ordenamiento burbuja? | – | – | 0.416 | – | no | Algorithms · Cap. 3: Dynamic Programming · pág. 11 |
+| N03 | ¿Cómo armo una ventana con botones en una interfaz gráfica? | – | – | 0.395 | – | no | Apéndices I y II de Algorithms (Erickson · Apéndice I: Proof by Induction · pág. 14 |
+| N04 | ¿Cómo hago que una clase herede los métodos de otra? | – | – | 0.634 | – | sí ✗ | Think Java ·  6: Bucles y cadenas · 6.11 String Formatting |
+| N05 | ¿Cómo funciona el merge sort? | – | – | 0.376 | – | no | Problem Solving with Algorithms and Data Structures using Python · 5.7 The Bubble Sort · 5.7. The Bubble Sort |

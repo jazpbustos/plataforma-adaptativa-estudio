@@ -24,8 +24,19 @@ def embedding_falso(textos):
     return vectores
 
 
+def reranking_falso(consulta, textos):
+    """Reemplaza al cross-encoder real (~470 MB): puntúa con la misma similitud del embedding falso.
+
+    Así el re-ranking queda activo en todos los tests sin cambiar el orden que esperan; los tests del
+    re-ranking usan uno propio que ordena distinto.
+    """
+    q, *vs = embedding_falso([consulta, *textos])
+    return [sum(a * b for a, b in zip(q, v)) for v in vs]
+
+
 @pytest.fixture(autouse=True)
 def sin_modelo_real(monkeypatch):
     from app.services import rag
     monkeypatch.setattr(rag, "embedder", embedding_falso)
+    monkeypatch.setattr(rag, "reordenador", reranking_falso)
     rag.vaciar()

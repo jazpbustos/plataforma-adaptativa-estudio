@@ -9,9 +9,11 @@ fuentes usa el modelo de lenguaje):
    se normaliza (ligaduras, glifos ilegibles y, en los PDF, palabras cortadas con guion).
 2. Segmentación: fragmentos de hasta 400 caracteres con 60 de superposición.
 3. Representación vectorial: paraphrase-multilingual-MiniLM-L12-v2, local (FastEmbed, sin costo por uso).
-4. Recuperación: los seis fragmentos más similares de cada fuente (propia y académica), filtrados por
-   tema, descartando los que no alcanzan una similitud coseno de 0,35 y con un máximo por origen (los
-   lugares libres se completan con más candidatos de otras fuentes). A cada fragmento se le agrega su
+4. Recuperación: los seis mejores fragmentos de cada fuente (propia y académica), filtrados por tema:
+   de los candidatos más similares se descartan los que no alcanzan la similitud coseno mínima, un
+   cross-encoder multilingüe los reordena según si responden la consulta (re-ranking) y se eligen
+   con un máximo por origen (los lugares libres se completan con más candidatos de otras fuentes).
+   A cada fragmento se le agrega su
    contexto (los fragmentos vecinos de la misma sección), y los vecinos recuperados se fusionan.
 
 Cada fragmento guarda los campos de FRAGMENTO_MATERIAL (Figura 6): id_fragmento, id_origen, id_tema,
@@ -207,6 +209,36 @@ def _embed(textos: list[str]) -> list[list[float]]:
     return embedder(textos)
 
 
+class _CrossEncoder:
+    """Modelo de re-ranking: lee la consulta y cada fragmento juntos y devuelve un puntaje de pertinencia.
+
+    mmarco-mMiniLMv2 es multilingüe (consultas en español, fuentes en inglés) y no viene en la lista de
+    FastEmbed: se registra con su archivo ONNX. Se descarga la primera vez (~470 MB).
+    """
+    def __init__(self):
+        from fastembed.common.model_description import ModelSource
+        from fastembed.rerank.cross_encoder import TextCrossEncoder
+        nombre = R["modelo_reranking"]
+        if nombre not in {m["model"] for m in TextCrossEncoder.list_supported_models()}:
+            TextCrossEncoder.add_custom_model(model=nombre, sources=ModelSource(hf=nombre), model_file="onnx/model.onnx",
+                                              license="apache-2.0", size_in_gb=0.47)
+        self.modelo = TextCrossEncoder(nombre)
+
+    def __call__(self, consulta: str, textos: list[str]) -> list[float]:
+        return [float(p) for p in self.modelo.rerank(consulta, textos)]
+
+
+reordenador = None  # se crea al primer uso; los tests lo reemplazan por uno falso
+
+
+def _puntajes(consulta: str, textos: list[str]) -> list[float]:
+    global reordenador
+    with _lock:
+        if reordenador is None:
+            reordenador = _CrossEncoder()
+    return reordenador(consulta, textos) if textos else []
+
+
 class EmbeddingsLocales(Embeddings):
     """Adapta el modelo local a la interfaz de embeddings de LangChain."""
 
@@ -264,29 +296,45 @@ def indexar(secciones: list[Seccion], *, id_origen: int, id_tema: int, fuente: s
 
 
 def _de_una_fuente(consulta: str, filtro: dict, k: int, minima: float, max_por_origen: int) -> list[dict]:
-    """Los k fragmentos más similares que superan el umbral, con como mucho `max_por_origen` de cada origen.
+    """Los k mejores fragmentos que superan el umbral, con como mucho `max_por_origen` de cada origen.
 
-    Se piden más candidatos que los que se devuelven: si una fuente grande (Algorithms de Erickson tiene unos
-    850 fragmentos de Recursividad) ocupa los primeros puestos, los lugares que deja libres se completan con
-    los siguientes candidatos de otras fuentes, siempre sobre el umbral. 0 = sin máximo por origen.
+    Se piden más candidatos que los que se devuelven, por dos motivos:
+    - Re-ranking: la similitud de los embeddings compara la consulta y el fragmento por separado, y los
+      fragmentos generales sobre el tema (un glosario, una introducción) se parecen a casi cualquier
+      consulta. Un cross-encoder lee la consulta y cada candidato juntos y los reordena según si lo
+      responden (puntaje_reranking). El umbral se sigue aplicando a la similitud coseno: el puntaje del
+      cross-encoder está en otra escala, y así "suficiente" (CA5) no depende del reordenamiento.
+    - Diversidad: si una fuente grande (Algorithms de Erickson tiene unos 850 fragmentos de Recursividad)
+      ocupa los primeros puestos, los lugares que deja libres se completan con los siguientes candidatos
+      de otras fuentes, siempre sobre el umbral. 0 = sin máximo por origen.
     """
     resultados = almacen().similarity_search_with_relevance_scores(consulta, k=max(R["candidatos"], k), filter=filtro)
+    candidatos = [{"id_fragmento": doc.id, "texto_original": doc.page_content, "similitud": round(score, 3),
+                   **doc.metadata} for doc, score in resultados if score >= minima]  # de mayor a menor similitud
+    if R["reranking"]:
+        for f, p in zip(candidatos, _puntajes(consulta, [f["texto_original"] for f in candidatos])):
+            f["puntaje_reranking"] = round(p, 3)
+        candidatos.sort(key=lambda f: f["puntaje_reranking"], reverse=True)
     elegidos, por_origen = [], {}
-    for doc, score in resultados:  # vienen ordenados de mayor a menor similitud
-        o = doc.metadata["id_origen"]
-        if score < minima or (max_por_origen and por_origen.get(o, 0) >= max_por_origen):
+    for f in candidatos:
+        o = f["id_origen"]
+        if max_por_origen and por_origen.get(o, 0) >= max_por_origen:
             continue
         por_origen[o] = por_origen.get(o, 0) + 1
-        elegidos.append({"id_fragmento": doc.id, "texto_original": doc.page_content, "similitud": round(score, 3),
-                         **doc.metadata})
+        elegidos.append(f)
         if len(elegidos) == k:
             break
     return elegidos
 
 
+def _orden(f: dict) -> float:
+    """Criterio para ordenar los resultados: el puntaje del re-ranking si se aplicó, si no la similitud."""
+    return f.get("puntaje_reranking", f["similitud"])
+
+
 def buscar(id_tema: int, consulta: str, materiales_propios: list[int], k: int | None = None,
            minima: float | None = None) -> list[dict]:
-    """Los k fragmentos más similares de cada fuente del tema, sin los que no alcanzan la similitud mínima.
+    """Los k mejores fragmentos de cada fuente del tema, sin los que no alcanzan la similitud mínima.
 
     Solo fuentes académicas o material del propio estudiante: nunca el material que subió otra persona.
     En cada fuente se limita cuántos fragmentos puede aportar un mismo origen (max_por_origen y
@@ -301,7 +349,8 @@ def buscar(id_tema: int, consulta: str, materiales_propios: list[int], k: int | 
         encontrados += _de_una_fuente(consulta, {"$and": [{"id_tema": id_tema}, {"fuente": PROPIA},
                                                           {"id_origen": {"$in": materiales_propios}}]}, k, minima,
                                       R["max_por_origen_propio"])
-    return con_contexto(sorted(encontrados, key=lambda f: f["similitud"], reverse=True))
+    # Con re-ranking, los fragmentos propios y los académicos se ordenan juntos por el mismo modelo.
+    return con_contexto(sorted(encontrados, key=_orden, reverse=True))
 
 
 # ---------------- Contexto: fragmentos vecinos ----------------
@@ -336,11 +385,11 @@ def con_contexto(fragmentos: list[dict], vecinos: int = R["vecinos"]) -> list[di
     contenido. Solo se juntan fragmentos del mismo origen y la misma página o sección.
 
     Si las ventanas de dos fragmentos recuperados se tocan o se pisan, se fusionan en un resultado, para
-    no repetir texto: queda en la posición del más similar, con su texto_original y su similitud, y
+    no repetir texto: queda en la posición del mejor ubicado, con su texto_original y su similitud, y
     `recuperados` lista todos los fragmentos que superaron el umbral dentro de ese contexto.
     """
     grupos: list[dict] = []
-    for f in fragmentos:  # vienen ordenados por similitud: el primero de cada grupo es el más similar
+    for f in fragmentos:  # vienen ordenados (re-ranking o similitud): el primero de cada grupo es el mejor
         if "orden" not in f:  # indexado antes de guardar el orden: sin vecinos
             grupos.append({**f, "contexto": f["texto_original"], "recuperados": [f["id_fragmento"]]})
             continue
