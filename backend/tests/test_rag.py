@@ -99,6 +99,87 @@ def test_extraccion_por_pagina_seccion_y_diapositiva(tmp_path):
         ("diap. 1", "Recursividad"), ("diap. 2", "La pila de llamadas guarda cada invocación")]
 
 
+# ---------------- Normalización del texto extraído ----------------
+
+def test_normalizar_convierte_ligaduras_y_espacios_especiales():
+    assert rag.normalizar("ﬁnite recursion, ﬂow and eﬀort here") == "finite recursion, flow and effort here"
+
+
+def test_normalizar_descarta_lineas_de_glifos_ilegibles_y_limpia_las_demas():
+    texto = "￿. R￿￿￿￿￿￿￿￿\n￿.￿. Tower of Hanoi\n￿￿￿\nThe Tower of Hanoi puzzle"
+    assert rag.normalizar(texto) == ".. Tower of Hanoi\nThe Tower of Hanoi puzzle"
+
+
+def test_unir_palabras_cortadas_con_guion_en_pdf():
+    assert rag.unir_guiones("a naive recur-\nsive algo-  \n  rithm") == "a naive recursive algorithm"
+    assert rag.unir_guiones("Floyd-\nPratt") == "Floyd-\nPratt"  # sigue en mayúscula: nombre compuesto
+    assert rag.unir_guiones("x = n -\n1 and well-known") == "x = n -\n1 and well-known"  # ni restas ni guiones internos
+
+
+def test_indexar_guarda_el_texto_normalizado(client):
+    tema = id_tema("Recursividad")
+    rag.indexar([rag.Seccion("￿￿￿￿\nThe ﬁrst recursive call is the base case.", "pág. 1")], id_origen=1, id_tema=tema,
+                fuente=rag.ACADEMICA, nombre_archivo="Erickson", prefijo="e1")
+    assert rag.almacen().get()["documents"] == ["The first recursive call is the base case."]
+
+
+# ---------------- Limpieza de la conversión HTML ----------------
+
+def test_html_descarta_interfaz_por_rol_clase_y_ocultos():
+    from app.fuentes import html_a_texto
+    html = ('<body class="nav-sidebar"><div role="navigation">Tabla de contenido</div>'
+            '<div class="navbar-collapse"><ul class="dropdown-menu"><li>Login</li><li>Dark Mode</li></ul></div>'
+            '<div class="sphinxsidebar">Tema anterior</div><div id="scprogresscontainer">You have attempted of</div>'
+            '<div class="adcopy"><h4>Before you keep reading...</h4><p>Please donate</p></div>'
+            '<div class="notice"><h4>Notices</h4>Print versions are available</div>'
+            '<ul data-component="multiplechoice" style="visibility: hidden;"><li>6</li><li>Wrong answer feedback</li></ul>'
+            '<span class="visuallyhidden">Scratch Activecode</span><p aria-hidden="true">icono</p><p hidden>x</p>'
+            '<main><h2>4.4 The Three Laws</h2><p>A recursive algorithm must have a base case.</p></main></body>')
+    texto = html_a_texto(html)
+    assert texto == "== 4.4 The Three Laws ==\n\nA recursive algorithm must have a base case."
+
+
+def test_html_no_confunde_secciones_con_interfaz_por_su_id():
+    """Jupyter Book genera el id de cada sección a partir del título: "2.8. Comments" es <section id="comments">."""
+    from app.fuentes import html_a_texto
+    html = ('<section id="comments"><h2>2.8. Comments</h2><p>Comments start with the # symbol.</p></section>'
+            '<div id="docComments"><h2>Submit correction</h2><p>Use this form</p></div>')
+    assert html_a_texto(html) == "== 2.8. Comments ==\n\nComments start with the # symbol."
+
+
+def test_html_conserva_los_editores_de_codigo_ocultos():
+    from app.fuentes import html_a_texto
+    html = ('<p>An iterative function:</p><div class="ac_section"><textarea data-lang="python" style="visibility: hidden;">'
+            'def list_sum(num_list):\n    the_sum = 0\n    return the_sum</textarea></div>')
+    assert "def list_sum(num_list):\n    the_sum = 0" in html_a_texto(html)
+
+
+def test_html_descarta_bloques_que_son_solo_enlaces():
+    from app.fuentes import html_a_texto
+    html = ('<div><small>[ <a href="s2.html">Next Section</a> | <a href="i.html">Chapter Index</a> | '
+            '<a href="../index.html">Main Index</a> ]</small></div>'
+            '<h3>Subsections</h3><ul><li><a href="#a">Recursive Binary Search</a></li></ul>'
+            '<p>See <a href="#b">the next section</a> for binary search.</p>'
+            '<div><h2><a href="toc.html">1.2 Procedures</a></h2></div>')
+    texto = html_a_texto(html)
+    assert "Next Section" not in texto and "Main Index" not in texto and "Recursive Binary Search" not in texto
+    assert "See the next section for binary search." in texto  # un enlace dentro de una oración se conserva
+    assert "== 1.2 Procedures ==" in texto  # y un título aunque sea un enlace
+
+
+def test_html_desenvuelve_los_ejemplos_del_visualizador():
+    from app.fuentes import html_a_texto
+    html = ("<pre><code>from pytutor import env_diagram</code></pre><p>The function:</p>"
+            "<pre><code>env_diagram(r&#x27;&#x27;&#x27;\ndef fact(n):\n    return 1\n&#x27;&#x27;&#x27;, step=0, cumulative=False)"
+            "</code></pre><pre><code>import math\nprint(math.pi)</code></pre>"
+            "<pre><code>print('''Uso: consulta\n  -h  ayuda''')</code></pre>")
+    texto = html_a_texto(html)
+    assert "def fact(n):\n    return 1" in texto
+    assert "env_diagram" not in texto and "step=0" not in texto and "pytutor" not in texto
+    assert "import math" in texto  # un import real del libro se conserva
+    assert "print('''Uso: consulta" in texto  # comillas triples que no envuelven un ejemplo: sin cambios
+
+
 def test_tipo_real_segun_el_contenido():
     assert rag.tipo_real(pdf("hola")) == "pdf"
     assert rag.tipo_real(docx("hola")) == "docx"

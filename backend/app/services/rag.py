@@ -5,7 +5,8 @@ El procesamiento tiene cinco etapas; aquí se implementan las cuatro primeras (e
 fuentes usa el modelo de lenguaje):
 
 1. Extracción: PDF página por página, DOCX sección por sección y PPTX diapositiva por diapositiva,
-   con la página, sección o diapositiva de origen en `pagina_o_seccion`.
+   con la página, sección o diapositiva de origen en `pagina_o_seccion`. Antes de fragmentar, el texto
+   se normaliza (ligaduras, glifos ilegibles y, en los PDF, palabras cortadas con guion).
 2. Segmentación: fragmentos de hasta 400 caracteres con 60 de superposición.
 3. Representación vectorial: paraphrase-multilingual-MiniLM-L12-v2, local (FastEmbed, sin costo por uso).
 4. Recuperación: los seis fragmentos más similares de cada fuente (propia y académica), filtrados por
@@ -19,6 +20,7 @@ están en parametros.toml.
 import io
 import re
 import threading
+import unicodedata
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -111,7 +113,7 @@ def _pptx(ruta: Path) -> list[Seccion]:
 def extraer(ruta: Path, tipo: str) -> list[Seccion]:
     if tipo == "pdf":
         from pypdf import PdfReader
-        return [Seccion(p.extract_text() or "", f"pág. {i}") for i, p in enumerate(PdfReader(ruta).pages, 1)]
+        return [Seccion(unir_guiones(p.extract_text() or ""), f"pág. {i}") for i, p in enumerate(PdfReader(ruta).pages, 1)]
     if tipo == "docx":
         from docx import Document
         secciones, actual, parrafos = [], "", []
@@ -127,6 +129,42 @@ def extraer(ruta: Path, tipo: str) -> list[Seccion]:
         return _pptx(ruta)
     # Texto plano con títulos: lo usan las fuentes académicas precargadas (no se admite como material propio).
     return por_titulos(ruta.read_text(encoding="utf-8", errors="replace"))
+
+
+# ---------------- Normalización ----------------
+
+# Cortes de palabra con guion al final de una línea de PDF ("recur-\nsive"): solo si sigue en minúscula,
+# porque "Floyd-\nPratt" es un nombre compuesto.
+CORTE_CON_GUION = re.compile(r"([^\W\d_])-[ \t]*\n[ \t]*(?=[^\W\d_A-ZÁÉÍÓÚÑ])")
+
+
+def unir_guiones(texto: str) -> str:
+    """Une las palabras que el PDF cortó con guion al final de la línea (se aplica solo a PDF)."""
+    return CORTE_CON_GUION.sub(r"\1", texto)
+
+
+def _ilegible(c: str) -> bool:
+    """Glifos sin equivalente Unicode: los PDF con tipografías propias los extraen como U+FFFF o U+FFFD."""
+    return c == "�" or unicodedata.category(c) in ("Cn", "Co")
+
+
+def normalizar(texto: str) -> str:
+    """Texto listo para fragmentar, de cualquier formato (Estructura de Datos, etapa de extracción).
+
+    - NFKC: las ligaduras tipográficas pasan a letras ("ﬁ" → "fi") y los espacios especiales, a espacios.
+      Sin esto, "ﬁnite" y "finite" son palabras distintas para el modelo de embeddings.
+    - Los glifos ilegibles se quitan; si son la mayor parte de una línea (encabezados de página de Erickson,
+      "￿. R￿￿￿￿￿￿￿￿"), la línea entera se descarta, porque lo que queda no se puede leer.
+    """
+    texto = unicodedata.normalize("NFKC", texto)
+    lineas = []
+    for linea in texto.split("\n"):
+        visibles = [c for c in linea if not c.isspace()]
+        malos = sum(_ilegible(c) for c in visibles)
+        if malos and malos / len(visibles) >= R["max_ilegible"]:
+            continue
+        lineas.append("".join(c for c in linea if not _ilegible(c)) if malos else linea)
+    return "\n".join(lineas)
 
 
 # ---------------- Fragmentación ----------------
@@ -205,7 +243,7 @@ def indexar(secciones: list[Seccion], *, id_origen: int, id_tema: int, fuente: s
     """
     docs, metas = [], []
     for s in secciones:
-        for f in fragmentar(s.texto):
+        for f in fragmentar(normalizar(s.texto)):
             docs.append(f)
             metas.append({"id_origen": id_origen, "id_tema": id_tema, "fuente": fuente,
                           "nombre_archivo": nombre_archivo, "pagina_o_seccion": s.pagina_o_seccion})

@@ -24,7 +24,8 @@ cuota_mb_por_estudiante = 200
 [rag]                                # Estructura de Datos: las cinco etapas del procesamiento
 tam_fragmento = 400                  # caracteres: entra completo en los 128 tokens del modelo
 solapamiento = 60
-fragmento_minimo = 30                # más corto que esto (un título suelto) no se indexa si el archivo tiene más texto
+max_ilegible = 0.5                   # si la mitad o más de una línea son glifos ilegibles del PDF (U+FFFF), se descarta la línea
+fragmento_minimo = 30               # más corto que esto (un título suelto) no se indexa si el archivo tiene más texto
 k_por_fuente = 6                     # fragmentos más similares de cada fuente (propia y académica)
 similitud_minima = 0.5               # coseno; calibrado con consultas de la materia (valor inicial de la E3: 0,35)
 fragmentos_minimos = 2               # HU-003 CA5: con menos, el material es insuficiente
