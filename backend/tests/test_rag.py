@@ -283,7 +283,7 @@ def test_busqueda_devuelve_lo_mas_parecido_primero_y_aplica_el_umbral(client):
     academica(tema, "Las tablas hash usan una función para ubicar claves en cubetas.", 3)
     r = rag.buscar(tema, "qué es el caso base de la recursión", [])
     assert [f["id_origen"] for f in r][:2] in ([1, 2], [2, 1])
-    assert r[0]["similitud"] >= r[1]["similitud"] >= 0.35
+    assert r[0]["similitud"] >= r[1]["similitud"] >= rag.R["similitud_minima"]
     assert 3 not in [f["id_origen"] for f in r]  # no alcanza la similitud mínima
     assert len(rag.buscar(tema, "qué es el caso base de la recursión", [], minima=0)) == 3
 

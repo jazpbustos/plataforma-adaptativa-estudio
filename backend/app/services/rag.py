@@ -10,7 +10,8 @@ fuentes usa el modelo de lenguaje):
 2. Segmentación: fragmentos de hasta 400 caracteres con 60 de superposición.
 3. Representación vectorial: paraphrase-multilingual-MiniLM-L12-v2, local (FastEmbed, sin costo por uso).
 4. Recuperación: los seis mejores fragmentos de cada fuente (propia y académica), filtrados por tema:
-   de los candidatos más similares se descartan los que no alcanzan la similitud coseno mínima, un
+   de los candidatos más similares se descartan los que no alcanzan la similitud coseno mínima (0,45,
+   calibrada con evaluacion/consultas.json; el valor inicial de la E3 era 0,35), un
    cross-encoder multilingüe los reordena según si responden la consulta (re-ranking) y se eligen
    con un máximo por origen (los lugares libres se completan con más candidatos de otras fuentes).
    A cada fragmento se le agrega su

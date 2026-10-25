@@ -118,14 +118,27 @@ La API conserva los nombres que usa el front (`plan`, `topic`, `sessions`…) y 
 
 ## 7. Material y RAG (HU-003)
 
-LangChain + ChromaDB, con un modelo de embeddings local y multilingüe (`paraphrase-multilingual-MiniLM-L12-v2`, vía FastEmbed). No usa servicios pagos; la primera vez descarga el modelo (~220 MB).
+LangChain + ChromaDB, con dos modelos locales y multilingües vía FastEmbed: `paraphrase-multilingual-MiniLM-L12-v2` para
+los embeddings (~220 MB) y el cross-encoder `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1` para el re-ranking (~470 MB).
+Ambos tienen licencia Apache 2.0, no usan servicios pagos y se descargan la primera vez que se usan.
 
 1. Al subir un archivo se valida su tipo por contenido (no solo la extensión), su tamaño, la cantidad por tema y la cuota del estudiante.
-2. Se extrae el texto: PDF por página, DOCX por sección y PPTX por diapositiva.
+2. Se extrae el texto: PDF por página, DOCX por sección y PPTX por diapositiva. Se normaliza antes de fragmentar: NFKC
+   (ligaduras como «ﬁ»), glifos ilegibles y caracteres de control de los PDF, y palabras cortadas con guion al final de línea.
+   En las fuentes académicas en HTML se descarta la interfaz de la página (menús, índices, avisos, elementos ocultos,
+   bloques que son solo enlaces) y se conservan los ejemplos de código.
 3. Se divide en fragmentos de hasta 400 caracteres con 60 de superposición.
-4. Cada fragmento se guarda en ChromaDB con los campos de FRAGMENTO_MATERIAL (Figura 6): `id_origen`, `id_tema`, `fuente` (propia/académica), `nombre_archivo` y `pagina_o_seccion`.
+4. Cada fragmento se guarda en ChromaDB con los campos de FRAGMENTO_MATERIAL (Figura 6): `id_origen`, `id_tema`, `fuente`
+   (propia/académica), `nombre_archivo` y `pagina_o_seccion`, y `orden` (su posición dentro del origen).
 5. `material_estudio.estado` pasa de *pendiente* a *procesado*, *sin texto* (documento escaneado o solo imágenes) o *con error*.
-6. Las búsquedas traen los 6 fragmentos más similares de cada fuente del tema, descartan los de similitud coseno menor a 0,35 e indican si alcanzan (al menos 2).
+6. Cada búsqueda, por fuente (académica y propia) del tema:
+   - trae 20 candidatos de ChromaDB y descarta los de similitud coseno menor a **0,45** (calibrado, ver abajo);
+   - los reordena con el cross-encoder, que lee la consulta y cada fragmento juntos (`puntaje_reranking`);
+   - elige 6 con como mucho 3 de un mismo libro (en el material propio, sin máximo);
+   - agrega a cada uno su `contexto` (el fragmento anterior y el siguiente de la misma sección) y fusiona los vecinos;
+   - indica si alcanzan: al menos 2 fragmentos sobre el umbral (HU-003, CA5).
+
+Todos estos valores están en la sección `[rag]` de `backend/parametros.toml`.
 
 Fuentes académicas (Anexo 6): `backend/fuentes/catalogo.json` asigna a cada tema las fuentes F1 a F12 con sus secciones.
 Se cargan una vez, desde `backend/` (descarga las páginas y PDF, registra cada fuente con su licencia e indexa):
@@ -133,13 +146,22 @@ Se cargan una vez, desde `backend/` (descarga las páginas y PDF, registra cada 
 ```bash
 python -m app.fuentes                 # descarga lo que falte y lo indexa (python -m app.fuentes --forzar: todo de nuevo)
 python -m app.buscar "Recursividad" "¿para qué sirve el caso base?"   # prueba de recuperación
-python -m app.evaluar linea-base      # mide la recuperación con evaluacion/consultas.json
+python -m app.evaluar --umbrales 0.4,0.45,0.5 --etiqueta "prueba"   # mide la recuperación y la agrega al informe
 ```
 
-`backend/evaluacion/consultas.json` es el conjunto de prueba de la recuperación: 29 consultas en español (5 sin respuesta
-en las fuentes) con los criterios que definen qué fragmentos las responden. `python -m app.evaluar <etiqueta>` informa
-acierto@1 y @3, MRR, precisión, si "suficiente" es correcto, concentración por fuente y ruido, y guarda el detalle con
-los parámetros usados en `backend/evaluacion/resultados/<etiqueta>.json`, para comparar cada cambio contra la línea base.
+**Evaluación de la recuperación.** `backend/evaluacion/consultas.json` es el conjunto de prueba: 29 consultas en español
+(15 de Recursividad, 3 de cada otro tema y 5 sin respuesta en las fuentes), cada una con las secciones que la responden.
+`python -m app.evaluar` verifica que esas secciones existan en los textos y calcula acierto@1, acierto@6, MRR, las
+consultas con respuesta que reúnen fragmentos suficientes, el rechazo de las que no tienen respuesta, la concentración
+por fuente y la distribución de similitudes. `--umbrales` repite las métricas para cada umbral, `--param nombre=valor`
+prueba otro valor de `[rag]` sin editar el archivo y `--etiqueta` agrega el resultado a `backend/evaluacion/informe.md`.
+
+Resultados (detalle y justificación del umbral en el informe):
+
+| etapa | acierto@1 | acierto@6 | MRR | con respuesta suficientes | sin respuesta rechazadas |
+|---|---|---|---|---|---|
+| inicial (umbral 0,5) | 0,46 | 0,67 | 0,53 | 79 % | 4 de 5 |
+| limpieza + vecinos + diversidad + re-ranking, umbral 0,45 | 0,75 | 0,92 | 0,82 | 96 % | 4 de 5 |
 
 ## 8. Próximos pasos
 
