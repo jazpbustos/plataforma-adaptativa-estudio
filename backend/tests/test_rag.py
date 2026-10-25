@@ -108,6 +108,7 @@ def test_normalizar_convierte_ligaduras_y_espacios_especiales():
 def test_normalizar_descarta_lineas_de_glifos_ilegibles_y_limpia_las_demas():
     texto = "￿. R￿￿￿￿￿￿￿￿\n￿.￿. Tower of Hanoi\n￿￿￿\nThe Tower of Hanoi puzzle"
     assert rag.normalizar(texto) == ".. Tower of Hanoi\nThe Tower of Hanoi puzzle"
+    assert rag.normalizar("P\x00\x00O\x00\x00\x00\x00(left(v))\n\tif v = N\x00\x00\x00") == "PO(left(v))\n\tif v = N"
 
 
 def test_unir_palabras_cortadas_con_guion_en_pdf():
@@ -203,7 +204,7 @@ def test_subir_pdf_lo_indexa_con_los_metadatos_del_der(client):
     assert mats[0]["status"] == "procesado"
     meta = rag.almacen().get(where={"id_origen": mats[0]["id"]})["metadatas"][0]
     assert meta == {"id_origen": mats[0]["id"], "id_tema": id_tema("Recursividad"), "fuente": "propia",
-                    "nombre_archivo": "apunte.pdf", "pagina_o_seccion": "pág. 1"}
+                    "nombre_archivo": "apunte.pdf", "pagina_o_seccion": "pág. 1", "orden": 0}
 
 
 def test_subir_pptx_conserva_la_diapositiva(client):
@@ -326,6 +327,78 @@ def test_busqueda_no_mezcla_temas_ni_material_ajeno(client):
     assert client.get(f"/api/plans/{plan_ana}/search", params={"q": "caso base"}).json()["fragmentos"] == []
     # Y no puede buscar en el objetivo del otro estudiante.
     assert client.get(f"/api/plans/{plan_otro}/search", params={"q": "caso base"}).status_code == 404
+
+
+# ---------------- Contexto con fragmentos vecinos ----------------
+
+def parrafos(prefijo, n):
+    """Párrafos de unos 350 caracteres: cada uno queda en un fragmento propio, sin superposición."""
+    return [f"{prefijo}{i}: " + f"texto del párrafo {prefijo}{i} sobre recursividad. " * 7 for i in range(n)]
+
+
+def recuperado(id_fragmento, similitud=0.9):
+    """Un fragmento como lo devuelve la búsqueda."""
+    r = rag.almacen().get(ids=[id_fragmento])
+    return {"id_fragmento": id_fragmento, "texto_original": r["documents"][0], "similitud": similitud, **r["metadatas"][0]}
+
+
+@pytest.fixture()
+def documento(client):
+    """Origen 1: sección A con P0..P4 y sección B con Q0..Q2. Origen 2: sección A con X0..X4."""
+    tema = id_tema("Recursividad")
+    rag.indexar([rag.Seccion("\n\n".join(parrafos("P", 5)), "A"), rag.Seccion("\n\n".join(parrafos("Q", 3)), "B")],
+                id_origen=1, id_tema=tema, fuente=rag.ACADEMICA, nombre_archivo="Libro", prefijo="o1")
+    rag.indexar([rag.Seccion("\n\n".join(parrafos("X", 5)), "A")], id_origen=2, id_tema=tema, fuente=rag.ACADEMICA,
+                nombre_archivo="Otro", prefijo="o2")
+
+
+def test_indexar_guarda_el_orden_dentro_de_cada_origen(documento):
+    metas = rag.almacen().get(where={"id_origen": 1})["metadatas"]
+    assert sorted(m["orden"] for m in metas) == list(range(8))  # consecutivo aunque cambie la sección
+    assert sorted(m["orden"] for m in rag.almacen().get(where={"id_origen": 2})["metadatas"]) == list(range(5))
+
+
+def test_contexto_al_principio_y_al_final_de_la_seccion(documento):
+    primero, ultimo = rag.con_contexto([recuperado("o1-0")]), rag.con_contexto([recuperado("o1-4")])
+    assert primero[0]["contexto"].startswith("P0:") and "P1:" in primero[0]["contexto"] and "P2:" not in primero[0]["contexto"]
+    assert "P3:" in ultimo[0]["contexto"] and "P4:" in ultimo[0]["contexto"] and "P2:" not in ultimo[0]["contexto"]
+    assert primero[0]["texto_original"].startswith("P0:") and primero[0]["similitud"] == 0.9
+
+
+def test_contexto_no_mezcla_secciones_ni_origenes(documento):
+    # P4 (orden 4) es el último de A: el siguiente orden (5) es Q0, de la sección B, y no se agrega.
+    contexto = rag.con_contexto([recuperado("o1-4")])[0]["contexto"]
+    assert "Q0" not in contexto and "X" not in contexto
+    contexto = rag.con_contexto([recuperado("o2-2")])[0]["contexto"]
+    assert all(x in contexto for x in ("X1:", "X2:", "X3:")) and "P" not in contexto.replace("párrafo", "")
+
+
+def test_vecinos_recuperados_se_fusionan_en_un_resultado(documento):
+    r = rag.con_contexto([recuperado("o1-2", 0.9), recuperado("o2-2", 0.85), recuperado("o1-3", 0.8)])
+    assert len(r) == 2  # P2 y P3 son vecinos; X2 es de otro origen
+    assert (r[0]["texto_original"][:3], r[0]["similitud"], r[0]["recuperados"]) == ("P2:", 0.9, ["o1-2", "o1-3"])
+    assert [p for p in ("P0:", "P1:", "P2:", "P3:", "P4:") if p in r[0]["contexto"]] == ["P1:", "P2:", "P3:", "P4:"]
+    assert all(r[0]["contexto"].count(f"P{i}:") <= 1 for i in range(5))  # sin texto repetido
+    # Ventanas que solo se tocan (P0 → 0..1 y P3 → 2..4) también se fusionan; separadas (P0 y P4), no.
+    assert len(rag.con_contexto([recuperado("o1-0"), recuperado("o1-3")])) == 1
+    assert len(rag.con_contexto([recuperado("o1-0"), recuperado("o1-4")])) == 2
+
+
+def test_suficiente_cuenta_los_fragmentos_fusionados(documento, monkeypatch):
+    fusionados = rag.con_contexto([recuperado("o1-2"), recuperado("o1-3")])
+    monkeypatch.setattr(rag, "buscar", lambda *a, **k: fusionados)
+    r = rag.recuperar(id_tema("Recursividad"), "x", [])
+    assert len(r["fragmentos"]) == 1 and r["suficiente"] is True
+
+
+def test_unir_fragmentos_sin_repetir_la_superposicion():
+    texto = " ".join(f"Oración número {i} sobre el caso base." for i in range(40))
+    frags = rag.fragmentar(texto, tam=200, solape=60)
+    unido = frags[0]
+    for f in frags[1:]:
+        unido = rag.unir_solapados(unido, f)
+    assert all(unido.count(f"Oración número {i} ") == 1 for i in range(40))
+    assert rag.unir_solapados("dame el", "elefante") == "dame el\nelefante"  # "el" no es superposición de "elefante"
 
 
 def test_reindexar_no_duplica(client):

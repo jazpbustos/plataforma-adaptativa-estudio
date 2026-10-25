@@ -10,7 +10,8 @@ fuentes usa el modelo de lenguaje):
 2. Segmentación: fragmentos de hasta 400 caracteres con 60 de superposición.
 3. Representación vectorial: paraphrase-multilingual-MiniLM-L12-v2, local (FastEmbed, sin costo por uso).
 4. Recuperación: los seis fragmentos más similares de cada fuente (propia y académica), filtrados por
-   tema, descartando los que no alcanzan una similitud coseno de 0,35.
+   tema, descartando los que no alcanzan una similitud coseno de 0,35. A cada fragmento se le agrega su
+   contexto (los fragmentos vecinos de la misma sección), y los vecinos recuperados se fusionan.
 
 Cada fragmento guarda los campos de FRAGMENTO_MATERIAL (Figura 6): id_fragmento, id_origen, id_tema,
 texto_original, embedding, fuente, nombre_archivo y pagina_o_seccion. `id_origen` es el id del
@@ -144,8 +145,9 @@ def unir_guiones(texto: str) -> str:
 
 
 def _ilegible(c: str) -> bool:
-    """Glifos sin equivalente Unicode: los PDF con tipografías propias los extraen como U+FFFF o U+FFFD."""
-    return c == "�" or unicodedata.category(c) in ("Cn", "Co")
+    """Glifos sin equivalente Unicode: los PDF con tipografías propias los extraen como U+FFFF o U+FFFD, y
+    las versalitas de Erickson, como caracteres de control (U+0000). Tabuladores y saltos de línea no cuentan."""
+    return c == "�" or unicodedata.category(c) in ("Cn", "Co") or (unicodedata.category(c) == "Cc" and c not in "\t\r\n")
 
 
 def normalizar(texto: str) -> str:
@@ -250,6 +252,9 @@ def indexar(secciones: list[Seccion], *, id_origen: int, id_tema: int, fuente: s
     if any(len(d) >= R["fragmento_minimo"] for d in docs):
         pares = [(d, m) for d, m in zip(docs, metas) if len(d) >= R["fragmento_minimo"]]
         docs, metas = [d for d, _ in pares], [m for _, m in pares]
+    # Posición de cada fragmento dentro de su origen: permite traer los vecinos al recuperar (ver contexto).
+    for n, m in enumerate(metas):
+        m["orden"] = n
     vs = almacen()
     vs.delete(where={"$and": [{"fuente": fuente}, {"id_origen": id_origen}]})  # reindexar no duplica
     if docs:
@@ -274,7 +279,67 @@ def buscar(id_tema: int, consulta: str, materiales_propios: list[int], k: int = 
         encontrados += _de_una_fuente(consulta, {"$and": [{"id_tema": id_tema}, {"fuente": PROPIA},
                                                           {"id_origen": {"$in": materiales_propios}}]}, k)
     encontrados = [f for f in encontrados if f["similitud"] >= minima]
-    return sorted(encontrados, key=lambda f: f["similitud"], reverse=True)
+    return con_contexto(sorted(encontrados, key=lambda f: f["similitud"], reverse=True))
+
+
+# ---------------- Contexto: fragmentos vecinos ----------------
+
+def unir_solapados(a: str, b: str) -> str:
+    """Une dos fragmentos consecutivos sin repetir la superposición (hasta 60 caracteres, ver fragmentar).
+
+    El final de `a` reaparece al principio de `b`: se busca la coincidencia más larga que empiece y
+    termine en un límite de palabra, para no confundir una superposición con una palabra repetida por azar.
+    """
+    for k in range(min(len(a), len(b)), 0, -1):
+        if (a.endswith(b[:k]) and (k == len(b) or not b[k].isalnum())
+                and (k == len(a) or not a[-k - 1].isalnum())):
+            return a + b[k:]
+    return f"{a}\n{b}"
+
+
+def _vecinos(f: dict, desde: int, hasta: int) -> list[str]:
+    """Textos de los fragmentos del mismo origen y la misma sección con orden entre `desde` y `hasta`."""
+    r = almacen().get(where={"$and": [{"fuente": f["fuente"]}, {"id_origen": f["id_origen"]},
+                                      {"pagina_o_seccion": f["pagina_o_seccion"]},
+                                      {"orden": {"$gte": desde}}, {"orden": {"$lte": hasta}}]})
+    return [t for _, t in sorted(zip((m["orden"] for m in r["metadatas"]), r["documents"]))]
+
+
+def con_contexto(fragmentos: list[dict], vecinos: int = R["vecinos"]) -> list[dict]:
+    """Agrega a cada fragmento recuperado el campo "contexto": el texto con sus vecinos (orden ± vecinos).
+
+    Los fragmentos de 400 caracteres son buenos para comparar con la consulta (cada uno entra completo en
+    el vector), pero a veces les falta el párrafo anterior o el siguiente para que se entiendan. La
+    búsqueda sigue comparando contra el fragmento, y el contexto se arma después, para quien genera el
+    contenido. Solo se juntan fragmentos del mismo origen y la misma página o sección.
+
+    Si las ventanas de dos fragmentos recuperados se tocan o se pisan, se fusionan en un resultado, para
+    no repetir texto: queda en la posición del más similar, con su texto_original y su similitud, y
+    `recuperados` lista todos los fragmentos que superaron el umbral dentro de ese contexto.
+    """
+    grupos: list[dict] = []
+    for f in fragmentos:  # vienen ordenados por similitud: el primero de cada grupo es el más similar
+        if "orden" not in f:  # indexado antes de guardar el orden: sin vecinos
+            grupos.append({**f, "contexto": f["texto_original"], "recuperados": [f["id_fragmento"]]})
+            continue
+        clave = (f["fuente"], f["id_origen"], f["pagina_o_seccion"])
+        g = next((g for g in grupos if g.get("_clave") == clave
+                  and f["orden"] - vecinos <= g["_hasta"] + 1 and f["orden"] + vecinos >= g["_desde"] - 1), None)
+        if g:
+            g["_desde"], g["_hasta"] = min(g["_desde"], f["orden"] - vecinos), max(g["_hasta"], f["orden"] + vecinos)
+            g["recuperados"].append(f["id_fragmento"])
+        else:
+            grupos.append({**f, "_clave": clave, "_desde": f["orden"] - vecinos, "_hasta": f["orden"] + vecinos,
+                           "recuperados": [f["id_fragmento"]]})
+    for g in grupos:
+        if "_clave" in g:
+            textos = _vecinos(g, g.pop("_desde"), g.pop("_hasta"))
+            del g["_clave"]
+            contexto = textos[0] if textos else g["texto_original"]
+            for t in textos[1:]:
+                contexto = unir_solapados(contexto, t)
+            g["contexto"] = contexto
+    return grupos
 
 
 def recuperar(id_tema: int, consulta: str, materiales_propios: list[int]) -> dict:
@@ -282,7 +347,9 @@ def recuperar(id_tema: int, consulta: str, materiales_propios: list[int]) -> dic
 
     Con menos de dos fragmentos sobre el umbral, el material es insuficiente: quien llama informa al
     estudiante y solo genera una respuesta del conocimiento general del modelo si él lo pide, marcada
-    como no respaldada por las fuentes del tema.
+    como no respaldada por las fuentes del tema. Se cuentan los fragmentos que superaron el umbral,
+    aunque dos vecinos se hayan fusionado en un mismo resultado.
     """
     fragmentos = buscar(id_tema, consulta, materiales_propios)
-    return {"fragmentos": fragmentos, "suficiente": len(fragmentos) >= R["fragmentos_minimos"]}
+    recuperados = sum(len(f["recuperados"]) for f in fragmentos)
+    return {"fragmentos": fragmentos, "suficiente": recuperados >= R["fragmentos_minimos"]}

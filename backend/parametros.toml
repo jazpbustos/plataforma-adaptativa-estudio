@@ -28,7 +28,8 @@ max_ilegible = 0.5                   # si la mitad o más de una línea son glif
 fragmento_minimo = 30               # más corto que esto (un título suelto) no se indexa si el archivo tiene más texto
 k_por_fuente = 6                     # fragmentos más similares de cada fuente (propia y académica)
 similitud_minima = 0.5               # coseno; calibrado con consultas de la materia (valor inicial de la E3: 0,35)
-fragmentos_minimos = 2               # HU-003 CA5: con menos, el material es insuficiente
+vecinos = 1                          # al recuperar, se agregan los fragmentos anterior y siguiente como contexto
+fragmentos_minimos = 2              # HU-003 CA5: con menos, el material es insuficiente
 modelo_embeddings = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 
 [llm]                                # Herramientas de Desarrollo: criterio de asignación de modelos

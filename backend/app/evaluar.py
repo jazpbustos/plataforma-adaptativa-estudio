@@ -99,7 +99,8 @@ def medir(consulta: dict, fragmentos: list[dict], todos: list[dict]) -> dict:
         "id": consulta["id"],
         "positiva": bool(consulta["secciones"]),
         "posicion": aciertos[0] if aciertos else None,
-        "suficiente": len(fragmentos) >= R["fragmentos_minimos"],
+        # Como en rag.recuperar: cuentan los fragmentos sobre el umbral, aunque dos vecinos se hayan fusionado.
+        "suficiente": sum(len(f.get("recuperados", [None])) for f in fragmentos) >= R["fragmentos_minimos"],
         "devueltos": len(fragmentos),
         "concentracion": fuentes.most_common(1)[0][1] / len(fragmentos) if fragmentos else None,
         "similitud_maxima": todos[0]["similitud"] if todos else None,

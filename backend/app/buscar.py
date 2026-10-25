@@ -24,7 +24,10 @@ def main(tema: str, pregunta: str) -> None:
         print("Material insuficiente: menos de dos fragmentos superan la similitud mínima (HU-003, CA5).")
     for i, f in enumerate(r["fragmentos"], 1):
         lugar = f" · {f['pagina_o_seccion']}" if f["pagina_o_seccion"] else ""
-        print(f"\n{i}. [{f['similitud']:.2f}] {f['nombre_archivo']}{lugar}\n   {f['texto_original'][:300]}…")
+        unidos = f" · {len(f['recuperados'])} fragmentos recuperados" if len(f["recuperados"]) > 1 else ""
+        print(f"\n{i}. [{f['similitud']:.2f}] {f['nombre_archivo']}{lugar}{unidos}")
+        print(f"   Fragmento comparado: {f['texto_original'][:200]}…")
+        print("   Contexto:\n      " + f["contexto"].replace("\n", "\n      "))
 
 
 if __name__ == "__main__":
