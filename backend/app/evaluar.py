@@ -1,163 +1,230 @@
 """Medición de la recuperación (HU-003) con el conjunto de prueba de evaluacion/consultas.json.
 
 Uso (desde backend/, con el entorno activado):
-    python -m app.evaluar                mide con los parámetros actuales y muestra el resumen
-    python -m app.evaluar linea-base     además guarda el detalle en evaluacion/resultados/linea-base.json
+    python -m app.evaluar                                   mide con el umbral actual
+    python -m app.evaluar --umbrales 0.4,0.45,0.5,0.55,0.6  recalcula las métricas para cada umbral
+    python -m app.evaluar --etiqueta "inicial"              además agrega el resultado a evaluacion/informe.md
 
-Cada consulta pasa por la misma búsqueda que usa la API (rag.recuperar, solo fuentes académicas) y el
-resultado se compara con los fragmentos que cuentan como respuesta. Así cada cambio del RAG se mide con
-la misma vara, en lugar de mirar a ojo dos o tres preguntas: los valores iniciales se calibran en las
-pruebas de cada incremento (Herramientas Metodológicas) y quedan registrados con sus parámetros.
+Cada consulta pasa por la misma búsqueda que usa la plataforma (rag.buscar sobre las fuentes académicas
+del tema, con el modelo de embeddings real) y el resultado se compara con las secciones que la responden.
+Así cada cambio del RAG se mide con la misma vara, en lugar de mirar a ojo dos o tres preguntas: el umbral
+es un valor inicial sujeto a calibración (Estructura de Datos) y la recuperación entre idiomas se evalúa
+con consultas propias de la materia (Anexo 6).
 
-Métricas, sobre las consultas que tienen respuesta en las fuentes:
-- acierto@k: proporción de consultas con al menos un fragmento relevante entre los k primeros devueltos.
-- MRR (rango recíproco medio): 1 / posición del primer relevante (0 si no aparece). Premia que salga arriba.
-- precisión: de los fragmentos devueltos, cuántos son relevantes.
-- posición sin umbral: dónde queda el primer relevante si no se descarta nada. Separa un problema de orden
-  (sale abajo) de uno de umbral (sale arriba, pero no llega a la similitud mínima).
-- concentración: qué parte de lo devuelto viene de la fuente que más aparece.
-Y sobre todas: si "suficiente" es correcto (true con respuesta, false sin ella, HU-003 CA5) y cuántos
-fragmentos devueltos tienen restos de las páginas (ruido).
+Métricas:
+- acierto@1: en las consultas positivas, la primera sección devuelta es una de las esperadas.
+- acierto@6: alguna sección esperada aparece entre los fragmentos devueltos (hasta k_por_fuente = 6).
+- MRR (rango recíproco medio): promedio de 1 / posición del primer acierto (0 si no hay). Premia que salga arriba.
+- positivas suficientes: consultas con respuesta que alcanzan los fragmentos mínimos (CA5). Si el umbral es
+  muy alto, la plataforma diría "material insuficiente" aunque la respuesta esté en las fuentes.
+- rechazo de negativas: consultas sin respuesta que quedan "insuficientes", como corresponde.
+- concentración: qué parte de lo devuelto viene de la fuente que más aparece (una sola fuente acaparando).
+- distribución de similitudes: la del fragmento más parecido, en positivas y en negativas. Si se superponen,
+  ningún umbral separa bien las dos clases.
 """
+import argparse
 import json
 import re
 import statistics
 import sys
 from collections import Counter
+from datetime import datetime
 from pathlib import Path
 
 from .config import P
 from .services import rag
 
+R = P["rag"]
 CARPETA = Path("evaluacion")
 CONSULTAS = CARPETA / "consultas.json"
-CATALOGO = Path("fuentes") / "catalogo.json"
-E = P["evaluacion"]
+INFORME = CARPETA / "informe.md"
+SIN_UMBRAL = -1.0  # la similitud coseno va de -1 a 1: con este mínimo no se descarta nada
 
 
-def titulos_del_catalogo(catalogo: Path = CATALOGO) -> dict[str, str]:
-    """Id del catálogo (F1…F12) → título con el que se guardó la fuente en nombre_archivo."""
-    return {id_cat: d["titulo"] for id_cat, d in json.loads(catalogo.read_text(encoding="utf-8"))["fuentes"].items()}
+# ---------------- Secciones esperadas ----------------
+
+def coincide(esperada: str, pagina_o_seccion: str) -> bool:
+    """La sección esperada aparece en pagina_o_seccion, sin distinguir mayúsculas.
+
+    Si a la subcadena le sigue un dígito no cuenta: "pág. 3" no es "pág. 30" ni "5.1" es "5.10".
+    """
+    return re.search(re.escape(esperada) + r"(?!\d)", pagina_o_seccion, re.IGNORECASE) is not None
 
 
-def es_relevante(fragmento: dict, criterios: list[dict], titulos: dict[str, str]) -> bool:
-    """Cumple al menos un criterio; dentro de un criterio, todo lo que indica (fuente, sección y texto)."""
-    def cumple(c: dict) -> bool:
-        if "fuente" in c and fragmento["nombre_archivo"] != titulos[c["fuente"]]:
-            return False
-        if "seccion" in c and c["seccion"].lower() not in fragmento["pagina_o_seccion"].lower():
-            return False
-        return "texto" not in c or re.search(c["texto"], fragmento["texto_original"], re.IGNORECASE) is not None
-    return any(cumple(c) for c in criterios)
+def secciones_reales(tema: str) -> list[str] | None:
+    """Los pagina_o_seccion que produce la indexación de las fuentes del tema, leídos de sus .txt.
+
+    None si los textos no están descargados (se generan con python -m app.fuentes y no se versionan).
+    """
+    from .fuentes import CARPETA as FUENTES, CATALOGO, _secciones, _slug
+    cat = json.loads(CATALOGO.read_text(encoding="utf-8"))
+    secciones = []
+    for id_cat, partes in cat["temas"][tema].items():
+        for n, (nombre, _url, *solo) in enumerate(partes, 1):
+            archivo = FUENTES / _slug(tema) / f"{id_cat.lower()}-{n}.txt"
+            if not archivo.exists():
+                return None
+            _, _, texto = archivo.read_text(encoding="utf-8").partition("\n\n")
+            secciones += [s.pagina_o_seccion for s in _secciones(nombre, texto, solo[0] if solo else None)
+                          if s.texto.strip()]
+    return secciones
 
 
-def _primera(marcas: list[bool]) -> int | None:
-    return next((i for i, m in enumerate(marcas, 1) if m), None)
+def verificar(conjunto: dict) -> list[str]:
+    """Problemas del conjunto de prueba: temas inexistentes o secciones esperadas que no están en los textos."""
+    from .db import TEMAS
+    problemas, reales = [], {}
+    for c in conjunto["consultas"]:
+        if c["tema"] not in TEMAS:
+            problemas.append(f"{c['id']}: el tema {c['tema']!r} no existe")
+            continue
+        if c["tema"] not in reales:
+            reales[c["tema"]] = secciones_reales(c["tema"])
+        if reales[c["tema"]] is None:
+            continue
+        for esperada in c["secciones"]:
+            if not any(coincide(esperada, s) for s in reales[c["tema"]]):
+                problemas.append(f"{c['id']}: la sección {esperada!r} no está en las fuentes de {c['tema']}")
+    return problemas
 
 
-def medir(consulta: dict, devueltos: list[dict], suficiente: bool, sin_umbral: list[dict],
-          titulos: dict[str, str], ruido: re.Pattern | None) -> dict:
-    """Resultado de una consulta: lo devuelto (con el umbral) y, para diagnosticar, el orden sin umbral."""
-    criterios = consulta["relevantes"]
-    marcas = [es_relevante(f, criterios, titulos) for f in devueltos]
-    marcas_sin = [es_relevante(f, criterios, titulos) for f in sin_umbral]
-    pos_sin = _primera(marcas_sin)
-    fuentes = Counter(f["nombre_archivo"] for f in devueltos)
+# ---------------- Métricas ----------------
+
+def medir(consulta: dict, fragmentos: list[dict], todos: list[dict]) -> dict:
+    """Resultado de una consulta con un umbral: `fragmentos` es lo devuelto y `todos`, lo mismo sin umbral."""
+    aciertos = [i for i, f in enumerate(fragmentos, 1)
+                if any(coincide(e, f["pagina_o_seccion"]) for e in consulta["secciones"])]
+    fuentes = Counter(f["nombre_archivo"] for f in fragmentos)
     return {
-        "id": consulta["id"], "tema": consulta["tema"], "consulta": consulta["consulta"],
-        "con_respuesta": bool(criterios),
-        "suficiente": suficiente,
-        "suficiencia_correcta": suficiente == bool(criterios),
-        "devueltos": len(devueltos),
-        "relevantes_devueltos": sum(marcas),
-        "posicion": _primera(marcas),
-        "posicion_sin_umbral": pos_sin,
-        "similitud_primer_relevante": sin_umbral[pos_sin - 1]["similitud"] if pos_sin else None,
-        "similitud_maxima": sin_umbral[0]["similitud"] if sin_umbral else None,
-        "concentracion": round(fuentes.most_common(1)[0][1] / len(devueltos), 3) if devueltos else None,
-        "con_ruido": sum(bool(ruido and ruido.search(f["texto_original"])) for f in devueltos),
-        "fragmentos": [{"posicion": i, "similitud": f["similitud"], "relevante": m, "fuente": f["nombre_archivo"],
-                        "seccion": f["pagina_o_seccion"], "texto": f["texto_original"][:160]}
-                       for i, (f, m) in enumerate(zip(devueltos, marcas), 1)],
+        "id": consulta["id"],
+        "positiva": bool(consulta["secciones"]),
+        "posicion": aciertos[0] if aciertos else None,
+        "suficiente": len(fragmentos) >= R["fragmentos_minimos"],
+        "devueltos": len(fragmentos),
+        "concentracion": fuentes.most_common(1)[0][1] / len(fragmentos) if fragmentos else None,
+        "similitud_maxima": todos[0]["similitud"] if todos else None,
     }
 
 
-def resumir(medidas: list[dict], aciertos_en: list[int] = E["aciertos_en"]) -> dict:
-    con = [m for m in medidas if m["con_respuesta"]]
-    sin = [m for m in medidas if not m["con_respuesta"]]
-    media = lambda xs: round(statistics.mean(xs), 3) if xs else None
-    con_devueltos = [m for m in con if m["devueltos"]]
-    devueltos = sum(m["devueltos"] for m in medidas)
-    r = {"consultas": len(medidas), "con_respuesta": len(con), "sin_respuesta": len(sin)}
-    for k in aciertos_en:
-        r[f"acierto@{k}"] = media([m["posicion"] is not None and m["posicion"] <= k for m in con])
-    r.update({
-        "mrr": media([1 / m["posicion"] if m["posicion"] else 0 for m in con]),
-        "precision": media([m["relevantes_devueltos"] / m["devueltos"] for m in con_devueltos]),
-        "suficiente_con_respuesta": media([m["suficiente"] for m in con]),     # debería ser 1
-        "insuficiente_sin_respuesta": media([not m["suficiente"] for m in sin]),  # debería ser 1
-        "sin_relevante_en_profundidad": sum(m["posicion_sin_umbral"] is None for m in con),
-        "posicion_sin_umbral_mediana": statistics.median(p) if (p := [m["posicion_sin_umbral"] for m in con
-                                                                      if m["posicion_sin_umbral"]]) else None,
-        "concentracion": media([m["concentracion"] for m in medidas if m["concentracion"] is not None]),
-        "fragmentos_devueltos": devueltos,
-        "fragmentos_con_ruido": sum(m["con_ruido"] for m in medidas),
-        # Para calibrar el umbral: cuánto se parece la primera respuesta en las consultas que la tienen,
-        # y cuánto se parece lo mejor que hay en las que no la tienen.
-        "similitud_primer_relevante": sorted(m["similitud_primer_relevante"] for m in con
-                                             if m["similitud_primer_relevante"] is not None),
-        "similitud_maxima_sin_respuesta": sorted(m["similitud_maxima"] for m in sin
-                                                 if m["similitud_maxima"] is not None),
-    })
-    return r
+def _media(xs: list) -> float | None:
+    return round(statistics.mean(xs), 3) if xs else None
 
 
-def evaluar(conjunto: dict, temas: dict[str, int], titulos: dict[str, str]) -> tuple[list[dict], dict]:
-    """Corre todas las consultas. `temas`: nombre del tema → id_tema."""
-    ruido = re.compile("|".join(f"(?:{p})" for p in conjunto.get("ruido", []))) if conjunto.get("ruido") else None
-    medidas = []
+def resumir(medidas: list[dict]) -> dict:
+    pos = [m for m in medidas if m["positiva"]]
+    neg = [m for m in medidas if not m["positiva"]]
+    return {
+        "acierto@1": _media([m["posicion"] == 1 for m in pos]),
+        f"acierto@{R['k_por_fuente']}": _media([m["posicion"] is not None for m in pos]),
+        "mrr": _media([1 / m["posicion"] if m["posicion"] else 0 for m in pos]),
+        "positivas suficientes": _media([m["suficiente"] for m in pos]),
+        "rechazo de negativas": _media([not m["suficiente"] for m in neg]),
+        "concentración": _media([m["concentracion"] for m in medidas if m["concentracion"] is not None]),
+    }
+
+
+def distribucion(valores: list[float]) -> dict:
+    v = [x for x in valores if x is not None]
+    return {"n": len(v), "mínimo": min(v), "máximo": max(v), "promedio": _media(v)} if v else {"n": 0}
+
+
+def evaluar(conjunto: dict, temas: dict[str, int], umbrales: list[float]) -> dict:
+    """Corre todas las consultas para cada umbral. `temas`: nombre del tema → id_tema."""
+    por_umbral = {u: [] for u in umbrales}
+    detalle = []
     for c in conjunto["consultas"]:
         id_tema = temas[c["tema"]]
-        r = rag.recuperar(id_tema, c["consulta"], materiales_propios=[])
-        sin_umbral = rag.buscar(id_tema, c["consulta"], [], k=E["profundidad"], minima=-1)
-        medidas.append(medir(c, r["fragmentos"], r["suficiente"], sin_umbral, titulos, ruido))
-    return medidas, resumir(medidas)
+        todos = rag.buscar(id_tema, c["consulta"], [], minima=SIN_UMBRAL)
+        for u in umbrales:
+            por_umbral[u].append(medir(c, rag.buscar(id_tema, c["consulta"], [], minima=u), todos))
+        sin = medir(c, todos, todos)
+        detalle.append({**c, "posicion_sin_umbral": sin["posicion"], "similitud_maxima": sin["similitud_maxima"],
+                        "similitud_primer_acierto": todos[sin["posicion"] - 1]["similitud"] if sin["posicion"] else None,
+                        "primero": todos[0] if todos else None})
+    return {
+        "umbrales": {u: resumir(m) for u, m in por_umbral.items()},
+        "medidas": por_umbral,
+        "detalle": detalle,
+        "distribucion": {
+            "positivas": distribucion([d["similitud_maxima"] for d in detalle if d["secciones"]]),
+            "negativas": distribucion([d["similitud_maxima"] for d in detalle if not d["secciones"]]),
+        },
+    }
 
+
+# ---------------- Informe ----------------
 
 def _num(x) -> str:
-    return "–" if x is None else f"{x:.2f}" if isinstance(x, float) else str(x)
+    if x is None:
+        return "–"
+    if isinstance(x, bool):
+        return "sí" if x else "no"
+    return f"{x:.3f}".rstrip("0").rstrip(".") if isinstance(x, float) else str(x)
 
 
-def mostrar(medidas: list[dict], resumen: dict) -> None:
-    print(f"{'id':4} {'pos':>4} {'sin umbral':>10} {'sim 1.º rel':>11} {'sim máx':>8} {'dev':>4} {'rel':>4} "
-          f"{'conc':>5}  suficiente")
-    for m in medidas:
-        ok = "ok" if m["suficiencia_correcta"] else "MAL"
-        print(f"{m['id']:4} {_num(m['posicion']):>4} {_num(m['posicion_sin_umbral']):>10} "
-              f"{_num(m['similitud_primer_relevante']):>11} {_num(m['similitud_maxima']):>8} {m['devueltos']:>4} "
-              f"{m['relevantes_devueltos']:>4} {_num(m['concentracion']):>5}  {m['suficiente']} ({ok})")
-    print()
-    for clave, valor in resumen.items():
-        print(f"  {clave}: {valor}")
+def tablas(r: dict, actual: float) -> str:
+    """El resultado en Markdown: métricas por umbral, distribución de similitudes y detalle por consulta."""
+    cols = list(next(iter(r["umbrales"].values())))
+    lineas = ["| umbral | " + " | ".join(cols) + " |", "|---" * (len(cols) + 1) + "|"]
+    for u, res in r["umbrales"].items():
+        nombre = f"**{_num(u)}** (actual)" if u == actual else _num(u)
+        lineas.append(f"| {nombre} | " + " | ".join(_num(res[c]) for c in cols) + " |")
+    lineas += ["", "Similitud del fragmento más parecido (sin umbral):", "",
+               "| consultas | n | mínimo | máximo | promedio |", "|---|---|---|---|---|"]
+    for clase, d in r["distribucion"].items():
+        lineas.append(f"| {clase} | {d['n']} | {_num(d.get('mínimo'))} | {_num(d.get('máximo'))} | {_num(d.get('promedio'))} |")
+    medidas = {m["id"]: m for m in r["medidas"][actual]} if actual in r["medidas"] else {}
+    lineas += ["", f"Detalle por consulta (posición del primer acierto con el umbral {_num(actual)} y sin umbral):", "",
+               "| id | consulta | pos. | pos. sin umbral | sim. máx. | sim. 1.er acierto | suficiente | primer fragmento |",
+               "|---|---|---|---|---|---|---|---|"]
+    for d in r["detalle"]:
+        m = medidas.get(d["id"], {})
+        primero = f"{d['primero']['nombre_archivo'].split(',')[0]} · {d['primero']['pagina_o_seccion'][-45:]}" if d["primero"] else "–"
+        ok = "" if m.get("suficiente") == bool(d["secciones"]) else " ✗"
+        lineas.append(f"| {d['id']} | {d['consulta']} | {_num(m.get('posicion'))} | {_num(d['posicion_sin_umbral'])} | "
+                      f"{_num(d['similitud_maxima'])} | {_num(d['similitud_primer_acierto'])} | "
+                      f"{_num(m.get('suficiente'))}{ok} | {primero.replace('|', '/')} |")
+    return "\n".join(lineas)
 
 
-def main(etiqueta: str | None = None, consultas: Path = CONSULTAS) -> dict:
+def agregar_al_informe(etiqueta: str, contenido: str, informe: Path = INFORME) -> None:
+    if not informe.exists():
+        informe.write_text("# Evaluación de la recuperación (HU-003)\n\n"
+                           "Cada sección es una medición de `python -m app.evaluar` sobre `evaluacion/consultas.json`, "
+                           "con los parámetros de `parametros.toml` vigentes en ese momento.\n", encoding="utf-8")
+    fecha = datetime.now().strftime("%Y-%m-%d %H:%M")
+    parametros = ", ".join(f"{k} = {R[k]}" for k in ("tam_fragmento", "solapamiento", "k_por_fuente",
+                                                      "similitud_minima", "fragmentos_minimos"))
+    with informe.open("a", encoding="utf-8") as f:
+        f.write(f"\n## {etiqueta} · {fecha}\n\nParámetros: {parametros}; modelo {R['modelo_embeddings']}; "
+                f"{len(rag.almacen().get(where={'fuente': rag.ACADEMICA})['ids'])} fragmentos académicos.\n\n"
+                f"{contenido}\n")
+
+
+def main(argv: list[str] | None = None) -> dict:
+    a = argparse.ArgumentParser(description="Mide la recuperación con evaluacion/consultas.json.")
+    a.add_argument("--umbrales", help="similitudes mínimas a comparar, separadas por coma (por defecto, la actual)")
+    a.add_argument("--etiqueta", help="agrega el resultado a evaluacion/informe.md con esta etiqueta")
+    args = a.parse_args(argv)
+    actual = R["similitud_minima"]
+    umbrales = sorted({float(u) for u in args.umbrales.split(",")} | {actual}) if args.umbrales else [actual]
+
+    conjunto = json.loads(CONSULTAS.read_text(encoding="utf-8"))
+    if problemas := verificar(conjunto):
+        sys.exit("El conjunto de prueba tiene errores:\n" + "\n".join(problemas))
     from sqlmodel import Session, select
     from .db import engine
     from .models import Tema
     with Session(engine) as db:
         temas = {t.nombre: t.id_tema for t in db.exec(select(Tema)).all()}
-    medidas, resumen = evaluar(json.loads(consultas.read_text(encoding="utf-8")), temas, titulos_del_catalogo())
-    mostrar(medidas, resumen)
-    if etiqueta:
-        destino = CARPETA / "resultados" / f"{etiqueta}.json"
-        destino.parent.mkdir(parents=True, exist_ok=True)
-        # Se guardan los parámetros junto con el resultado: así cada medición se puede reproducir.
-        destino.write_text(json.dumps({"parametros": {"rag": P["rag"], "evaluacion": E}, "resumen": resumen,
-                                       "consultas": medidas}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        print(f"\nDetalle guardado en {destino}")
-    return resumen
+    r = evaluar(conjunto, temas, umbrales)
+    contenido = tablas(r, actual)
+    print(contenido)
+    if args.etiqueta:
+        agregar_al_informe(args.etiqueta, contenido)
+        print(f"\nAgregado a {INFORME} como «{args.etiqueta}».")
+    return r
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else None)
+    main()

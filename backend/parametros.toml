@@ -30,10 +30,6 @@ similitud_minima = 0.5               # coseno; calibrado con consultas de la mat
 fragmentos_minimos = 2               # HU-003 CA5: con menos, el material es insuficiente
 modelo_embeddings = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 
-[evaluacion]                         # Medición de la recuperación con evaluacion/consultas.json (python -m app.evaluar)
-aciertos_en = [1, 3]                 # acierto@k: hay al menos un fragmento relevante entre los k primeros
-profundidad = 30                     # sin umbral, se mira hasta esta posición para ubicar el primer relevante
-
 [llm]                                # Herramientas de Desarrollo: criterio de asignación de modelos
 modelo_contenido = "claude-sonnet-5-5"   # contenido, contraste de fuentes y evaluación de explicaciones
 modelo_pistas = "claude-haiku-5-5"       # pistas mínimas
