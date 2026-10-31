@@ -163,8 +163,37 @@ Resultados (detalle y justificación del umbral en el informe):
 | inicial (umbral 0,5) | 0,46 | 0,67 | 0,53 | 79 % | 4 de 5 |
 | limpieza + vecinos + diversidad + re-ranking, umbral 0,45 | 0,75 | 0,92 | 0,82 | 96 % | 4 de 5 |
 
-## 8. Próximos pasos
+## 8. Banco de ejercicios y reglas de Practicar (HU-005, HU-006, HU-007, HU-010 y HU-011)
 
-- Servicio del modelo de lenguaje (Claude) y contraste de fuentes (HU-003, CA4).
-- Módulos Aprender, Practicar (editor Monaco + Judge0 + detector de bloqueos) y Consolidar.
-- Cálculo del dominio, desbloqueo de módulos y reajuste del plan.
+**Banco** (`backend/app/banco/`): 36 ejercicios curados. Recursividad tiene 15 (5 básicos, 5 intermedios y 5 avanzados)
+y los demás temas, 7 (2, 2 y 3). Cada uno tiene enunciado, dificultad, tiempo esperado, una firma independiente del
+lenguaje (tipos `int`, `bool`, `str` e `int[]`), al menos tres casos de prueba y una solución de referencia en Python y
+en Java. Las soluciones no se cargan en la base: los tests las ejecutan para garantizar que cada ejercicio tiene
+solución y que sus salidas esperadas son correctas. Se carga una vez, desde `backend/`:
+
+```bash
+python -m app.ejercicios          # carga o actualiza los ejercicios en la tabla ejercicio
+```
+
+**Ejecución** (`services/codigo.py` y `services/ejecucion.py`): el estudiante escribe solo la función; la plataforma le
+agrega los casos de prueba y envía el programa a Judge0 (token, consulta cada 1 s, 5 s de CPU, 128 MB, espera máxima
+de 30 s y un reintento). El resultado se clasifica en correcto, error de sintaxis, de ejecución o lógico, con el tipo de
+error normalizado ("sintaxis: cannot find symbol", "ejecución: RecursionError", "lógico: caso 3"). Para desarrollar sin
+Judge0 existe un ejecutor local que corre el código en la misma máquina: se habilita con `EJECUCION_LOCAL=true` en el
+`.env` y **nunca debe usarse en producción**. En producción se configuran `JUDGE0_URL` y `JUDGE0_API_KEY`.
+
+**Reglas** (`services/practica.py` y `services/progreso.py`), funciones puras probadas con los ejemplos de las HU:
+señal de bloqueo por tres intentos con el mismo error y dos líneas o menos de cambio, o por tiempo activo mayor a 2,5
+veces el esperado con un intento fallido previo; pista mínima y, si persiste, explicación elaborada; puntos 10/7/4;
+selección de los cinco ejercicios según el nivel inicial; nivel de dominio (0,3 × A + 0,4 × P + 0,3 × C) y estado de
+cada módulo con la condición que falta.
+
+## 9. Despliegue
+
+La demo se publica en Railway como un solo servicio (API + frontend compilado). La configuración paso a paso está en [DESPLIEGUE.md](DESPLIEGUE.md).
+
+## 10. Próximos pasos
+
+- Servicio del modelo de lenguaje (Claude): contenido de Aprender, pistas, explicaciones y evaluación de Consolidar.
+- Endpoints y pantallas de Aprender y Consolidar (Practicar ya está completo).
+- Registro del dominio y del desbloqueo en la base, y reajuste del plan.

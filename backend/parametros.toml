@@ -47,6 +47,8 @@ memoria_mb = 128
 espera_maxima_segundos = 30
 consulta_cada_segundos = 1
 reintentos = 1
+# Identificadores de lenguaje de Judge0 CE (GET /languages): Python 3.8.1 y Java (OpenJDK 13.0.1).
+lenguajes = { python = 71, java = 62 }
 
 [detector]                           # HU-006; valores iniciales sujetos a calibración
 intentos_iguales = 3

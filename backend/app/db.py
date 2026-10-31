@@ -63,6 +63,7 @@ def init_db() -> None:
     SQLModel.metadata.create_all(engine)  # crea las tablas que falten; a las que ya existen no les toca columnas
     _agregar_columnas_nuevas()  # por eso, un campo nuevo en un modelo existente se agrega acá, a mano
     _cargar_temas()
+    _cargar_ejercicios_si_faltan()
 
 
 def _borrar_tablas_viejas() -> None:
@@ -115,6 +116,16 @@ def _cargar_temas() -> None:
                 tema.conceptos_esperados = json.dumps(conceptos, ensure_ascii=False)
             db.add(tema)
         db.commit()
+
+
+def _cargar_ejercicios_si_faltan() -> None:
+    """Con la base vacía se carga el banco de ejercicios; para actualizarlo después: python -m app.ejercicios."""
+    from .models import Ejercicio
+    with Session(engine) as db:
+        if db.exec(select(Ejercicio.id_ejercicio)).first() is not None:
+            return
+    from .ejercicios import cargar
+    cargar(iniciar=False)
 
 
 def get_session() -> Iterator[Session]:

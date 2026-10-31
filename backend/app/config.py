@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""  # Claude (Anthropic); nunca va al repositorio ni al frontend
     judge0_url: str = ""  # ejecución aislada del código del estudiante
     judge0_api_key: str = ""
+    ejecucion_local: bool = False  # solo desarrollo y tests: ejecuta el código en esta máquina, sin Judge0
+    desbloquear_modulos: bool = False  # solo desarrollo: habilita Practicar sin aprobar Aprender (aún sin construir)
+    frontend_dir: str = ""  # producción: carpeta con el frontend compilado (npm run build); vacío en desarrollo
 
 
 settings = Settings()

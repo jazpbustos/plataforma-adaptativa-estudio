@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@monaco-editor/react": "4.7.0",
     "@react-oauth/google": "^0.13.5",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
