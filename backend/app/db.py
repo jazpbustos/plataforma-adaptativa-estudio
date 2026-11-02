@@ -26,6 +26,7 @@ AREA = "Algoritmos y estructuras de datos"
 CONCEPTOS = {
     "Sintaxis y estructuras de control": [
         "variables y tipos de datos",
+        "operadores y expresiones (aritméticos, de comparación y lógicos)",
         "estructuras condicionales",
         "estructuras repetitivas (bucles)",
         "condición de corte de un bucle",
@@ -48,6 +49,16 @@ CONCEPTOS = {
     ],
 }
 TEMAS = list(CONCEPTOS)
+# Propuestas anteriores de conceptos: si la base todavía tiene una de estas listas (el administrador no la cambió),
+# se reemplaza por la vigente. Una lista editada por el administrador no se toca.
+CONCEPTOS_ANTERIORES = {
+    "Sintaxis y estructuras de control": [[
+        "variables y tipos de datos",
+        "estructuras condicionales",
+        "estructuras repetitivas (bucles)",
+        "condición de corte de un bucle",
+    ]],
+}
 # Nombres anteriores de un tema: se renombra en lugar de crear uno nuevo, así no se pierden sus objetivos.
 RENOMBRADOS = {"Arreglos, pilas y colas": "Estructuras de datos lineales"}
 
@@ -112,7 +123,9 @@ def _cargar_temas() -> None:
         cargados = {t.nombre: t for t in db.exec(select(Tema)).all()}
         for nombre, conceptos in CONCEPTOS.items():
             tema = cargados.get(nombre) or Tema(nombre=nombre, area=AREA)
-            if tema.conceptos_esperados in (None, "", "[]"):  # no pisa lo que haya cargado el administrador
+            anteriores = CONCEPTOS_ANTERIORES.get(nombre, [])
+            if tema.conceptos_esperados in (None, "", "[]") or json.loads(tema.conceptos_esperados) in anteriores:
+                # no pisa lo que haya cargado el administrador
                 tema.conceptos_esperados = json.dumps(conceptos, ensure_ascii=False)
             db.add(tema)
         db.commit()

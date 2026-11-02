@@ -53,15 +53,38 @@ export default function AppShell() {
   const initials = user?.name?.split(' ').map((p) => p[0]).slice(0, 2).join('') ?? '?'
 
   const sidebar = (
-    <nav className="flex h-full flex-col gap-8 p-5" aria-label="Principal">
+    <nav className="flex h-full flex-col gap-6 overflow-y-auto p-5" aria-label="Principal">
       <div className="px-1 pt-1"><Logo to="/app" /></div>
+      {plan && (
+        <NavLink to="/app" className="sb-tema" title="Cambiar de tema desde Inicio">
+          <span className="text-[.7rem] font-medium text-muted">Tema actual</span>
+          <span className="truncate text-sm font-medium">{plan.topic}</span>
+        </NavLink>
+      )}
       <ul className="grid gap-1">
         {NAV.map(([to, label, Icon, end]) => (
           <li key={to}><NavLink to={to} end={end} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}><Icon />{label}</NavLink></li>
         ))}
       </ul>
-      <div className="mt-auto">
+      <div className="mt-auto grid gap-2">
         <NavLink to="/app/configuracion" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}><IconGear />Configuración</NavLink>
+        <div className="relative border-t border-line pt-3" ref={menuRef}>
+          <button type="button" className="sb-cuenta" onClick={() => setMenu((m) => !m)} aria-expanded={menu} aria-label="Menú de cuenta">
+            <span className="grid size-9 flex-none place-items-center overflow-hidden rounded-full bg-elev text-xs font-medium text-muted">
+              {user?.picture ? <img src={user.picture} alt="" referrerPolicy="no-referrer" className="size-full object-cover" /> : initials}
+            </span>
+            <span className="grid min-w-0">
+              <span className="truncate text-sm font-medium">{user?.name}</span>
+              <span className="truncate text-xs text-muted">{user?.email}</span>
+            </span>
+          </button>
+          {menu && (
+            <div className="rise card absolute bottom-full left-0 mb-2 w-full p-2 shadow-xl shadow-black/20">
+              <button type="button" className="w-full cursor-pointer rounded-md px-3 py-2 text-left text-sm text-muted hover:bg-elev hover:text-fg"
+                onClick={async () => { await logout(); navigate('/') }}>Cerrar sesión</button>
+            </div>
+          )}
+        </div>
       </div>
     </nav>
   )
@@ -81,31 +104,15 @@ export default function AppShell() {
       )}
 
       <div className="nb-page nb-lined min-h-dvh min-w-0">
-        <div className="nb-sheetbar sticky top-0 z-20">
-          <div className="mx-auto flex max-w-[1040px] items-center justify-between gap-3 px-4 py-4 sm:px-8">
-            <div className="flex min-w-0 items-center gap-3">
-              <button type="button" className="btn btn-ghost -ml-2 md:hidden" aria-label="Abrir menú" onClick={() => setOpen(true)}><IconMenu className="size-5" /></button>
-              <span className="truncate text-sm text-muted">Mi espacio{plan ? <> / <span className="text-fg">{plan.topic}</span></> : ''}</span>
-            </div>
-            <div className="relative" ref={menuRef}>
-              <button type="button" onClick={() => setMenu((m) => !m)} aria-expanded={menu} aria-label="Menú de cuenta"
-                className="grid size-9 cursor-pointer place-items-center overflow-hidden rounded-full bg-elev text-xs font-medium text-muted transition hover:text-fg">
-                {user?.picture ? <img src={user.picture} alt="" referrerPolicy="no-referrer" className="size-full object-cover" /> : initials}
-              </button>
-              {menu && (
-                <div className="rise card absolute right-0 mt-2 w-60 p-2 shadow-xl shadow-black/20">
-                  <div className="border-b border-line px-3 pt-1 pb-2">
-                    <p className="truncate text-sm font-medium">{user?.name}</p>
-                    <p className="truncate text-xs text-muted">{user?.email}</p>
-                  </div>
-                  <button type="button" className="mt-1 w-full cursor-pointer rounded-md px-3 py-2 text-left text-sm text-muted hover:bg-elev hover:text-fg"
-                    onClick={async () => { await logout(); navigate('/') }}>Cerrar sesión</button>
-                </div>
-              )}
-            </div>
+        {/* En celular: barra con el botón del menú (en escritorio el menú lateral queda siempre a la vista) */}
+        <div className="nb-sheetbar sticky top-0 z-20 md:hidden">
+          <div className="flex items-center gap-3 px-4 py-3">
+            <button type="button" className="btn btn-ghost -ml-2" aria-label="Abrir menú" onClick={() => setOpen(true)}><IconMenu className="size-5" /></button>
+            <Logo to="/app" />
+            {plan && <span className="ml-auto truncate text-xs text-muted">{plan.topic}</span>}
           </div>
         </div>
-        <main className="relative z-[2] mx-auto max-w-[1040px] px-4 pt-4 pb-20 sm:px-8 md:pl-12">
+        <main className="relative z-[2] mx-auto max-w-[1120px] px-4 pt-6 pb-20 sm:px-8 md:pt-10 md:pl-12">
           {error ? <p role="alert" className="text-red">{error}</p> : <Outlet context={{ data, reload, plan, selectPlan }} />}
         </main>
       </div>

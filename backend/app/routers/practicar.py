@@ -10,6 +10,7 @@ Flujo de un ejercicio:
    nivel de dominio del tema.
 """
 import json
+import logging
 import random
 from datetime import datetime, timezone
 
@@ -19,17 +20,18 @@ from sqlmodel import Session, func, select
 
 from ..config import P, settings
 from ..db import get_session
-from ..models import (DificultadDetectada, Ejercicio, Estudiante, Explicacion, Intento, NivelDominio, ObjetivoEstudio,
-                      Punto, SesionEstudio, Tema)
+from ..models import (DificultadDetectada, Ejercicio, Estudiante, Explicacion, Intento, MaterialEstudio, NivelDominio,
+                      ObjetivoEstudio, Punto, SesionEstudio, Tema)
 from ..schemas import LANGUAGES
 from ..security import current_user
 from ..services import practica as reglas
 from ..services.codigo import CORRECTO, clasificar, plantilla, programa
 from ..services.ejecucion import EjecucionNoDisponible, ejecutor
-from ..services.pistas import texto_intervencion
+from ..services import llm, pistas, rag
 from ..services.planner import plan_a_json, plan_desde_json, vigente
 from ..services.progreso import BLOQUEADO, estado_modulos, nivel_dominio
 
+log = logging.getLogger(__name__)
 router = APIRouter(tags=["practicar"])
 REQUERIDOS = P["practicar"]["ejercicios_para_aprobar"]
 
@@ -143,7 +145,7 @@ def _vista_ejercicio(db: Session, obj: ObjetivoEstudio, ej: Ejercicio, es_repaso
         "lenguaje_fijo": intentos[0].lenguaje if intentos else None,
         "codigo": intentos[-1].codigo if intentos else None,
         "intentos": [{"n": n, "resultado": i.resultado, "tipo_error": i.tipo_error} for n, i in enumerate(intentos, 1)],
-        "intervenciones": [{"nivel": d.nivel_intervencion, "texto": d.intervencion_generada, "motivo": d.tipo_patron}
+        "intervenciones": [_vista_intervencion(d, [i for i in intentos if i.id_intento <= d.id_intento])
                            for d in dificultades],
         "puntos_posibles": 0 if ya_resuelto else reglas.puntos(intervenciones),
     }
@@ -213,18 +215,44 @@ def _verificar_habilitado(db: Session, obj: ObjetivoEstudio) -> None:
         raise HTTPException(status.HTTP_403_FORBIDDEN, modulo["falta"])
 
 
-def _intervenir(db: Session, espec: dict, intentos: list[Intento], tiempo_activo: float, tiempo_esperado: int,
-                solo_tiempo: bool = False) -> DificultadDetectada | None:
+def _fragmentos(db: Session, obj: ObjetivoEstudio, consulta: str) -> list[dict]:
+    """Fragmentos del tema (fuentes académicas y material del estudiante) para la explicación elaborada."""
+    if not rag.listo():
+        # Todavía se están cargando (recién arrancó el servidor): no se hace esperar al estudiante.
+        log.info("Modelos del RAG aún sin cargar: explicación sin fragmentos del material")
+        return []
+    propios = db.exec(select(MaterialEstudio.id_material).where(MaterialEstudio.id_objetivo == obj.id_objetivo,
+                                                               MaterialEstudio.estado == "procesado")).all()
+    try:
+        r = rag.recuperar(obj.id_tema, consulta, list(propios))
+    except Exception as e:  # sin fragmentos la explicación se genera igual, solo con el enunciado y el código
+        log.warning("No se pudo recuperar material para la explicación: %s", e)
+        return []
+    return r["fragmentos"] if r["suficiente"] else []
+
+
+def _intervenir(db: Session, obj: ObjetivoEstudio, ej: Ejercicio, espec: dict, intentos: list[Intento],
+                tiempo_activo: float, mensaje: str | None = None, solo_tiempo: bool = False) -> DificultadDetectada | None:
     dificultades = _dificultades(db, intentos)
     r_intentos, r_intervenciones = _a_reglas(intentos, dificultades)
-    decision = reglas.siguiente_intervencion(r_intentos, r_intervenciones, tiempo_activo, tiempo_esperado)
+    decision = reglas.siguiente_intervencion(r_intentos, r_intervenciones, tiempo_activo, ej.tiempo_esperado)
     if not decision or (solo_tiempo and decision != (reglas.PISTA_MINIMA, reglas.TIEMPO_EXCEDIDO)):
         return None
     nivel, patron = decision
     # La intervención queda ligada al último intento fallido: el que originó la señal (por tiempo, el último).
     origen = next(i for i in reversed(intentos) if i.resultado != CORRECTO)
+    titulo, texto = _titulo_y_texto(ej)
+    if llm.configurado():
+        # El intento queda guardado antes de esperar al modelo: así la base no queda tomada durante la espera.
+        db.add(obj)
+        db.commit()
+    fragmentos = (_fragmentos(db, obj, pistas.consulta_material(espec, origen.tipo_error, titulo, texto))
+                  if nivel == reglas.EXPLICACION_ELABORADA and llm.configurado() else None)
+    generada = pistas.intervencion(nivel, espec, origen.tipo_error, titulo=titulo, enunciado=texto,
+                                   lenguaje=origen.lenguaje, codigo=origen.codigo, mensaje=mensaje,
+                                   fragmentos=fragmentos)
     d = DificultadDetectada(id_sesion=origen.id_sesion, id_intento=origen.id_intento, tipo_patron=patron,
-                            nivel_intervencion=nivel, intervencion_generada=texto_intervencion(nivel, espec, origen.tipo_error))
+                            nivel_intervencion=nivel, intervencion_generada=generada.texto)
     db.add(d)
     return d
 
@@ -236,12 +264,20 @@ def _vista_intervencion(d: DificultadDetectada | None, intentos: list[Intento]) 
         cambios = max(reglas.lineas_cambiadas(a.codigo, b.codigo) for a, b in zip(intentos[-3:], intentos[-2:]))
         motivo = f"Mismo error en los últimos 3 intentos, con {cambios} {'línea modificada' if cambios == 1 else 'líneas modificadas'} entre ellos."
     elif d.tipo_patron == reglas.TIEMPO_EXCEDIDO:
-        motivo = "Pasó bastante más tiempo que el esperado desde el último intento fallido."
+        factor = f"{reglas.D['factor_tiempo']:g}".replace(".", ",")
+        motivo = f"El tiempo en el ejercicio superó {factor} veces el esperado, con al menos un intento fallido."
     else:
         motivo = d.tipo_patron
     if d.nivel_intervencion == reglas.EXPLICACION_ELABORADA:
         motivo = "La dificultad sigue después de la pista."
-    return {"nivel": d.nivel_intervencion, "texto": d.intervencion_generada, "motivo": motivo}
+    # Etiqueta visible del bloqueo: qué regla del detector disparó la intervención (HU-006).
+    if d.nivel_intervencion == reglas.EXPLICACION_ELABORADA:
+        etiqueta = "Bloqueo persistente · mismo error después de la pista"
+    elif d.tipo_patron == reglas.TIEMPO_EXCEDIDO:
+        etiqueta = "Posible bloqueo · tiempo excedido"
+    else:
+        etiqueta = "Posible bloqueo · intentos repetidos"
+    return {"nivel": d.nivel_intervencion, "texto": d.intervencion_generada, "motivo": motivo, "etiqueta": etiqueta}
 
 
 @router.post("/plans/{plan_id}/practicar/intentos")
@@ -289,7 +325,7 @@ def enviar_intento(plan_id: int, body: IntentoIn, est: Estudiante = Depends(curr
             db.flush()
             dominio = _registrar_dominio(db, obj)
     else:
-        intervencion = _intervenir(db, espec, intentos, body.tiempo_activo, ej.tiempo_esperado)
+        intervencion = _intervenir(db, obj, ej, espec, intentos, body.tiempo_activo, mensaje=c.mensaje)
     db.add(obj)
     db.commit()
 
@@ -310,6 +346,29 @@ def informar_tiempo(plan_id: int, body: TiempoIn, est: Estudiante = Depends(curr
     _verificar_habilitado(db, obj)
     ej = _ejercicio_del_tema(db, obj, body.id_ejercicio)
     intentos = _intentos(db, obj, ej.id_ejercicio)
-    d = _intervenir(db, json.loads(ej.casos_prueba), intentos, body.tiempo_activo, ej.tiempo_esperado, solo_tiempo=True)
+    d = _intervenir(db, obj, ej, json.loads(ej.casos_prueba), intentos, body.tiempo_activo, solo_tiempo=True)
     db.commit()
     return {"intervencion": _vista_intervencion(d, intentos)}
+
+
+@router.delete("/plans/{plan_id}/practicar/ejercicios/{id_ejercicio}", status_code=status.HTTP_204_NO_CONTENT)
+def reiniciar_ejercicio(plan_id: int, id_ejercicio: int, est: Estudiante = Depends(current_user),
+                        db: Session = Depends(get_session)):
+    """Solo para pruebas (DEV_LOGIN=true): borra los intentos, las intervenciones y los puntos de un ejercicio.
+
+    En producción no existe: si el estudiante pudiera borrar sus intentos, podría repetir un ejercicio para
+    sumar puntos sin ayuda y se perdería el registro de dificultades (HU-009).
+    """
+    if not settings.dev_login:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not Found")
+    obj = _objetivo(db, plan_id, est)
+    ej = _ejercicio_del_tema(db, obj, id_ejercicio)
+    intentos = _intentos(db, obj, ej.id_ejercicio)
+    for d in _dificultades(db, intentos):
+        db.delete(d)
+    db.flush()
+    for i in intentos:
+        db.delete(i)
+    for p in db.exec(select(Punto).where(Punto.id_ejercicio == ej.id_ejercicio, Punto.id_sesion.in_(_sesiones(db, obj)))).all():
+        db.delete(p)
+    db.commit()

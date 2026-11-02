@@ -80,22 +80,31 @@ def siguiente_intervencion(intentos: list[Intento], intervenciones: list[Interve
                            tiempo_activo_segundos: float, tiempo_esperado_minutos: int) -> tuple[int, str] | None:
     """Qué intervención corresponde ahora en el ejercicio, o None. Devuelve (nivel, tipo de patrón).
 
-    - Sin intervenciones previas: ante una señal de bloqueo, la pista mínima (nivel 1, CA1).
-    - Con la pista ya dada: si el intento siguiente a la pista también falla, la explicación elaborada
-      (nivel 2, CA2), con el mismo patrón que originó la pista.
-    - Con la explicación ya dada no se interviene más en ese ejercicio: la ayuda no llega a la solución.
-    Si el ejercicio ya se resolvió, no corresponde intervenir.
+    Cada bloqueo detectado abre una secuencia de hasta dos niveles sobre el error que lo originó:
+    - Ante una señal de bloqueo, la pista mínima (nivel 1, CA1).
+    - Si en el intento siguiente a la pista persiste el mismo error, la explicación elaborada (nivel 2, CA2).
+      Si el error cambió o el intento fue correcto, la pista sirvió (hubo avance, CA3) y la secuencia se cierra.
+    - Con la secuencia cerrada, un nuevo bloqueo (otra vez tres intentos con el mismo error, contados desde la
+      última intervención) abre otra secuencia sobre el error actual. La regla de tiempo dispara una sola vez
+      por ejercicio, porque el tiempo activo es acumulado.
+    Ninguna intervención revela la solución. Si el ejercicio ya se resolvió, no corresponde intervenir.
     """
     if any(i.resultado == CORRECTO for i in intentos):
         return None
-    dadas = {i.nivel: i for i in intervenciones}
-    if EXPLICACION_ELABORADA in dadas:
-        return None
-    if PISTA_MINIMA in dadas:
-        pista = dadas[PISTA_MINIMA]
-        posteriores = intentos[pista.despues_del_intento + 1:]
-        if posteriores and posteriores[-1].resultado != CORRECTO:
-            return EXPLICACION_ELABORADA, pista.tipo_patron
+    if intervenciones:
+        ultima = intervenciones[-1]
+        posteriores = intentos[ultima.despues_del_intento + 1:]
+        if ultima.nivel == PISTA_MINIMA:
+            if not posteriores:
+                return None  # todavía no hay un intento después de la pista
+            origen = intentos[ultima.despues_del_intento]
+            if len(posteriores) == 1 and posteriores[0].tipo_error == origen.tipo_error:
+                return EXPLICACION_ELABORADA, ultima.tipo_patron
+        if senal_por_intentos(posteriores):
+            return PISTA_MINIMA, INTENTOS_REPETIDOS
+        tiempo_usado = any(i.tipo_patron == TIEMPO_EXCEDIDO for i in intervenciones)
+        if not tiempo_usado and posteriores and senal_por_tiempo(tiempo_activo_segundos, tiempo_esperado_minutos, intentos):
+            return PISTA_MINIMA, TIEMPO_EXCEDIDO
         return None
     if senal_por_intentos(intentos):
         return PISTA_MINIMA, INTENTOS_REPETIDOS
@@ -113,7 +122,7 @@ def hubo_avance(intento_que_origino: Intento, intento_siguiente: Intento) -> boo
 # ---------------- Puntos (HU-011, CA1) ----------------
 
 def puntos(intervenciones: list[Intervencion]) -> int:
-    """10 sin intervenciones, 7 con pista mínima y 4 si recibió además la explicación elaborada.
+    """10 sin intervenciones, 7 si solo recibió pistas mínimas y 4 si recibió alguna explicación elaborada.
 
     Solo se asignan en la primera resolución correcta de cada ejercicio: eso lo controla quien llama, con
     PUNTO.id_ejercicio.

@@ -8,6 +8,7 @@ import Home from './pages/Home.jsx'
 import Material from './pages/Material.jsx'
 import Progreso from './pages/Progreso.jsx'
 import Modulo from './pages/Modulo.jsx'
+import Aprender from './pages/Aprender.jsx'
 import Practicar from './pages/Practicar.jsx'
 import Configuracion from './pages/Configuracion.jsx'
 
@@ -21,7 +22,7 @@ export default function App() {
         <Route path="/app" element={<AppShell />}>
           <Route index element={<Home />} />
           <Route path="material" element={<Material />} />
-          <Route path="aprender" element={<Modulo module="aprender" />} />
+          <Route path="aprender" element={<Aprender />} />
           <Route path="practicar" element={<Practicar />} />
           <Route path="consolidar" element={<Modulo module="consolidar" />} />
           <Route path="progreso" element={<Progreso />} />

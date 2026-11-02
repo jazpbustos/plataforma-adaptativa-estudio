@@ -81,7 +81,7 @@ def test_primera_senal_da_la_pista_minima():
     assert siguiente_intervencion(intentos, [], 0, 10) == (PISTA_MINIMA, INTENTOS_REPETIDOS)
 
 
-def test_si_persiste_despues_de_la_pista_escala_a_la_explicacion():
+def test_si_persiste_el_mismo_error_despues_de_la_pista_escala_a_la_explicacion():
     intentos = [fallido(con_linea(i)) for i in range(3)]
     pista = Intervencion(PISTA_MINIMA, INTENTOS_REPETIDOS, despues_del_intento=2)
     assert siguiente_intervencion(intentos, [pista], 0, 10) is None  # todavía no hay intento posterior a la pista
@@ -90,6 +90,42 @@ def test_si_persiste_despues_de_la_pista_escala_a_la_explicacion():
     explicacion = Intervencion(EXPLICACION_ELABORADA, INTENTOS_REPETIDOS, despues_del_intento=3)
     intentos.append(fallido(con_linea(8)))
     assert siguiente_intervencion(intentos, [pista, explicacion], 0, 10) is None  # no hay un tercer nivel
+
+
+def test_si_el_error_cambia_despues_de_la_pista_no_escala():
+    # La pista sobre la sintaxis sirvió: ahora el error es otro (hubo avance), así que no corresponde la explicación.
+    intentos = [fallido(con_linea(i)) for i in range(3)]
+    pista = Intervencion(PISTA_MINIMA, INTENTOS_REPETIDOS, despues_del_intento=2)
+    intentos.append(fallido(con_linea(9), tipo="lógico: caso 1", resultado="error lógico"))
+    assert siguiente_intervencion(intentos, [pista], 0, 10) is None
+
+
+def test_un_nuevo_bloqueo_abre_otra_secuencia_sobre_el_error_actual():
+    sangria = dict(tipo="sintaxis: IndentationError", resultado="error de sintaxis")
+    intentos = [fallido(con_linea(i)) for i in range(3)]
+    pista = Intervencion(PISTA_MINIMA, INTENTOS_REPETIDOS, despues_del_intento=2)
+    intentos += [fallido(con_linea(10 + i), **sangria) for i in range(2)]
+    assert siguiente_intervencion(intentos, [pista], 0, 10) is None  # dos intentos con el error nuevo: todavía no
+    intentos.append(fallido(con_linea(12), **sangria))
+    assert siguiente_intervencion(intentos, [pista], 0, 10) == (PISTA_MINIMA, INTENTOS_REPETIDOS)
+    # y si ese error persiste en el intento siguiente, su explicación
+    pista2 = Intervencion(PISTA_MINIMA, INTENTOS_REPETIDOS, despues_del_intento=5)
+    intentos.append(fallido(con_linea(13), **sangria))
+    assert siguiente_intervencion(intentos, [pista, pista2], 0, 10) == (EXPLICACION_ELABORADA, INTENTOS_REPETIDOS)
+
+
+def test_despues_de_la_explicacion_un_nuevo_bloqueo_tambien_abre_otra_secuencia():
+    intentos = [fallido(con_linea(i)) for i in range(4)]
+    dadas = [Intervencion(PISTA_MINIMA, INTENTOS_REPETIDOS, 2), Intervencion(EXPLICACION_ELABORADA, INTENTOS_REPETIDOS, 3)]
+    logico = dict(tipo="lógico: caso 2", resultado="error lógico")
+    intentos += [fallido(con_linea(20 + i), **logico) for i in range(3)]
+    assert siguiente_intervencion(intentos, dadas, 0, 10) == (PISTA_MINIMA, INTENTOS_REPETIDOS)
+
+
+def test_la_regla_de_tiempo_dispara_una_sola_vez_por_ejercicio():
+    pista = Intervencion(PISTA_MINIMA, TIEMPO_EXCEDIDO, despues_del_intento=0)
+    intentos = [fallido(), fallido(con_linea(5), tipo="lógico: caso 1", resultado="error lógico")]
+    assert siguiente_intervencion(intentos, [pista], 99 * 60, 10) is None
 
 
 def test_pista_por_tiempo_excedido():

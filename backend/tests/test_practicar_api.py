@@ -67,13 +67,13 @@ def test_flujo_completo_de_un_ejercicio(client):
         r = enviar(client, plan, ej, incorrecto(ej, valor)).json()
         assert r["resultado"] == "error lógico" and r["tipo_error"] == "lógico: caso 1" and r["intervencion"] is None
     r = enviar(client, plan, ej, incorrecto(ej, -997)).json()
-    assert r["intervencion"]["nivel"] == 1
+    assert r["intervencion"]["nivel"] == 1 and r["intervencion"]["etiqueta"] == "Posible bloqueo · intentos repetidos"
     assert r["intervencion"]["motivo"] == "Mismo error en los últimos 3 intentos, con 1 línea modificada entre ellos."
     assert client.get(f"/api/plans/{plan}/practicar").json()["ejercicio"]["puntos_posibles"] == 7
 
     # Persiste después de la pista: explicación elaborada.
     r = enviar(client, plan, ej, incorrecto(ej, -996)).json()
-    assert r["intervencion"]["nivel"] == 2
+    assert r["intervencion"]["nivel"] == 2 and r["intervencion"]["etiqueta"].startswith("Bloqueo persistente")
 
     # Resuelve: 4 puntos (con explicación), dominio = 0,3 × 80 + 0,4 × (4 / 50 × 100).
     r = enviar(client, plan, ej, SOLUCIONES[ej["titulo"]].python).json()
@@ -130,7 +130,7 @@ def test_aviso_de_tiempo_detecta_sin_nuevo_intento(client):
     enviar(client, plan, ej, incorrecto(ej, -1))
     assert tiempo(limite - 1) is None
     i = tiempo(limite + 1)
-    assert i["nivel"] == 1 and "tiempo" in i["motivo"]
+    assert i["nivel"] == 1 and "tiempo" in i["motivo"] and i["etiqueta"] == "Posible bloqueo · tiempo excedido"
     assert tiempo(limite + 30) is None  # no se repite
 
 
@@ -157,3 +157,20 @@ def test_un_ejercicio_de_otro_tema_no_se_acepta(client):
     with Session(engine) as db:
         otro = db.exec(select(Ejercicio).join(Tema).where(Tema.nombre == "Búsqueda y ordenamiento")).first()
     assert enviar(client, plan, {"id": otro.id_ejercicio}, "x").status_code == 404
+
+
+def test_reiniciar_un_ejercicio_solo_en_modo_prueba(client, monkeypatch):
+    plan = crear_plan(client)
+    aprobar_aprender(plan)
+    ej = client.get(f"/api/plans/{plan}/practicar").json()["ejercicio"]
+    for v in (-1, -2, -3):
+        enviar(client, plan, ej, incorrecto(ej, v))
+    enviar(client, plan, ej, SOLUCIONES[ej["titulo"]].python)
+    monkeypatch.setattr(settings, "dev_login", False)
+    assert client.delete(f"/api/plans/{plan}/practicar/ejercicios/{ej['id']}").status_code == 404
+    monkeypatch.setattr(settings, "dev_login", True)
+    assert client.delete(f"/api/plans/{plan}/practicar/ejercicios/{ej['id']}").status_code == 204
+    with Session(engine) as db:
+        assert db.exec(select(Intento)).all() == [] and db.exec(select(DificultadDetectada)).all() == []
+    r = client.get(f"/api/plans/{plan}/practicar").json()
+    assert r["resueltos"] == 0 and r["puntos"] == 0

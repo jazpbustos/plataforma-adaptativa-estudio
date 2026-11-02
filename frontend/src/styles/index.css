@@ -455,10 +455,10 @@
    Solo modo claro: papel crema.
    ===================================================================== */
 .app-paper .nb-page::before { display: none; }/* Menú lateral: hoja suelta encima del cuaderno, con el borde derecho rasgado */
-.nb-sidesheet { --top-paper: #FBF9F6; position: relative; z-index: 30; background: var(--top-paper); filter: drop-shadow(4px 0 6px rgba(50, 38, 90, .16)); }
+.nb-sidesheet { --top-paper: #FBF9F6; z-index: 30; background: var(--top-paper); filter: drop-shadow(4px 0 6px rgba(50, 38, 90, .16)); }
 
 .nb-sidetear { position: absolute; top: 0; left: 100%; margin-left: -1px; width: 14px; height: 100%; fill: var(--top-paper); display: block; }
-/* Barra superior fija: el mismo papel de la hoja, apenas translúcido */
+/* Barra superior (solo celular): el mismo papel de la hoja, apenas translúcido */
 .nb-sheetbar { background: color-mix(in srgb, var(--sheet, var(--bg)) 88%, transparent); backdrop-filter: blur(6px); }
 /* Etiquetas en Poppins, como el resto del cuaderno (no en mono mayúscula) */
 .app-paper .label { font-family: var(--font-sans); font-size: .8rem; font-weight: 500; letter-spacing: 0; text-transform: none; }
@@ -472,3 +472,115 @@
 /* Recorrido: mismo subrayado/tilde a mano, para marcar el módulo actual/hecho */
 .rc-underline { position: absolute; left: -4px; right: -4px; bottom: -6px; width: calc(100% + 8px); height: 9px; fill: none; stroke: var(--ink-hand); stroke-width: 2; stroke-linecap: round; }
 .rc-check { width: 15px; height: 15px; fill: none; stroke: var(--ink-hand); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+/* Menú lateral: tema actual y cuenta */
+.sb-tema { display: grid; gap: 2px; padding: 10px 12px; border-radius: 12px; border: 1.5px dashed var(--rule); transition: border-color .15s; }
+.sb-tema:hover { border-color: var(--ink-hand); }
+.sb-cuenta { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px; border-radius: 12px; text-align: left; cursor: pointer; }
+.sb-cuenta:hover, .sb-cuenta[aria-expanded="true"] { background: var(--bg-card); }
+
+/* Ayudante de Practicar: cerebrito dibujado a mano en la esquina del editor, con globo de diálogo */
+.as-zona { position: absolute; top: 12px; right: 18px; bottom: 12px; z-index: 5; display: flex; flex-direction: column; align-items: flex-end; justify-content: flex-end;
+  gap: 2px; max-width: calc(100% - 36px); pointer-events: none; }
+.as-zona > * { pointer-events: auto; }
+.as-globo { position: relative; display: flex; flex-direction: column; min-height: 0; flex-shrink: 1; width: 340px; max-width: 100%; margin: 0 34px 10px 0; border-radius: 16px; color: #1F1A2B;
+  border: 1.5px solid #CDBDFF; background: #FFFEFC; box-shadow: 0 14px 34px -12px rgba(0, 0, 0, .55); animation: rise .35s ease both; }
+/* colita del globo, apuntando a la neurona */
+.as-globo::after { content: ""; position: absolute; right: 30px; bottom: -9px; width: 16px; height: 16px; transform: rotate(45deg);
+  background: #FFFEFC; border-right: inherit; border-bottom: inherit; border-bottom-right-radius: 3px; }
+/* el globo nunca sale del editor: si el texto no entra, tiene su propio scroll */
+.as-globo-texto { min-height: 0; overflow-y: auto; scrollbar-width: thin; padding: 12px 34px 12px 16px; border-radius: 16px;
+  background: repeating-linear-gradient(transparent 0 25px, rgba(107, 72, 208, .08) 25px 26px); }
+.as-globo-pista { border-color: #F0A25A; }
+.as-globo-ok { border-color: #6FD3A0; }
+.as-titulo { font-family: "Caveat", cursive; font-size: 1.45rem; font-weight: 600; line-height: 1; color: #6B48D0; margin-bottom: 4px; }
+.as-globo-pista .as-titulo { color: #B8610F; }
+.as-globo-ok .as-titulo { color: #1C7A50; }
+.as-cerrar { position: absolute; z-index: 1; top: 6px; right: 8px; width: 24px; height: 24px; border-radius: 999px; color: #6E6680; font-size: 1.1rem; line-height: 1; cursor: pointer; }
+.as-cerrar:hover { background: rgba(107, 72, 208, .1); color: #1F1A2B; }
+.as-boton { flex-shrink: 0; cursor: pointer; border-radius: 999px; padding: 0; background: none; }
+.as-boton:focus-visible { outline: 2px solid #CDBDFF; outline-offset: 4px; }
+.as-neurona { display: block; width: 120px; height: auto; overflow: visible; animation: as-flota 4.5s ease-in-out infinite; }
+.as-neurona .as-dendritas { fill: none; stroke: #C9B8FF; stroke-width: 2.4; opacity: .7; stroke-linecap: round; stroke-linejoin: round; }
+.as-neurona .as-soma { fill: #F7EEFF; stroke: #C9B8FF; stroke-width: 2.8; stroke-linejoin: round; }
+.as-neurona .as-pliegues { fill: none; stroke: #B49CF2; stroke-width: 2.2; stroke-linecap: round; }
+.as-neurona .as-cara-trazo { fill: none; stroke: #5B3FC4; stroke-width: 2.6; stroke-linecap: round; }
+.as-neurona .as-ojos, .as-neurona .as-puntos circle { fill: #5B3FC4; }
+.as-neurona .as-ojos { transform-origin: 70px 63px; animation: as-parpadeo 5s infinite; }
+.as-neurona .as-cachete { fill: rgba(176, 50, 124, .16); }
+.as-neurona .as-chispas circle { fill: #C9B8FF; opacity: .55; transition: fill .3s; }
+.as-pista .as-chispas circle, .as-explicacion .as-chispas circle { fill: #F0A25A; opacity: 1; animation: as-sinapsis 1.4s ease-in-out infinite; }
+.as-pista .as-dendritas, .as-explicacion .as-dendritas { stroke: #F3C08E; opacity: 1; }
+.as-festeja .as-dendritas { stroke: #9FE3C1; opacity: 1; }
+.as-festeja .as-chispas circle { fill: #6FD3A0; opacity: 1; animation: as-sinapsis 1s ease-in-out 3; }
+.as-festeja { animation: as-salto .6s ease 2; }
+.as-pensando .as-pliegues { animation: as-ondea 1.6s ease-in-out infinite; transform-origin: 70px 56px; }
+.as-pensando .as-chispas circle { animation: as-sinapsis 1.2s ease-in-out infinite; }
+.as-neurona .as-puntos circle { animation: as-punto 1.2s infinite; }
+.as-neurona .as-puntos circle:nth-child(2) { animation-delay: .2s; }
+.as-neurona .as-puntos circle:nth-child(3) { animation-delay: .4s; }
+@keyframes as-flota { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-5px) rotate(2deg); } }
+@keyframes as-parpadeo { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.1); } }
+@keyframes as-sinapsis { 0%, 100% { opacity: .45; r: 3; } 50% { opacity: 1; r: 4.4; } }
+@keyframes as-salto { 50% { transform: translateY(-10px); } }
+@keyframes as-ondea { 0%, 100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg); } }
+@keyframes as-punto { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .as-neurona, .as-neurona * { animation: none !important; } }
+@media (max-width: 640px) { .as-neurona { width: 80px; } .as-globo { margin-right: 10px; } }
+
+/* Barra de la consola de Practicar */
+.cs-lenguaje { padding: 4px 11px; border-radius: 6px; font: 500 .78rem var(--font-sans); color: rgba(255, 255, 255, .55); cursor: pointer; }
+.cs-lenguaje:hover:not(:disabled) { color: #fff; background: rgba(255, 255, 255, .06); }
+.cs-lenguaje[aria-checked="true"] { color: #fff; background: rgba(201, 184, 255, .18); box-shadow: inset 0 0 0 1px rgba(201, 184, 255, .35); }
+.cs-lenguaje:disabled:not([aria-checked="true"]) { opacity: .35; cursor: not-allowed; }
+.cs-run { display: inline-flex; align-items: center; gap: 7px; padding: 6px 14px; border-radius: 8px; cursor: pointer;
+  font: 600 .82rem var(--font-sans); color: #0E2A1C; background: #6FD3A0; transition: filter .15s; }
+.cs-run:hover:not(:disabled) { filter: brightness(1.08); }
+.cs-run:disabled { cursor: progress; opacity: .85; }
+.cs-run svg { width: 11px; height: 11px; fill: currentColor; }
+.cs-run-ok { background: #C9B8FF; color: #1F1A2B; }
+.cs-spin { width: 11px; height: 11px; border-radius: 999px; border: 2px solid currentColor; border-right-color: transparent; animation: cs-gira .7s linear infinite; }
+@keyframes cs-gira { to { transform: rotate(360deg); } }
+.cs-accion { padding: 5px 10px; border-radius: 7px; font: 500 .76rem var(--font-sans); color: rgba(255, 255, 255, .6); cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, .14); }
+.cs-accion:hover { color: #fff; border-color: rgba(255, 255, 255, .3); }
+.cs-accion-prueba { border-style: dashed; color: #F3C08E; border-color: rgba(243, 192, 142, .45); }
+/* Salida de la consola: alto fijo con scroll propio, para no desplazar la página */
+.cs-salida { height: 190px; overflow-y: auto; padding: 12px 20px; font: .78rem/1.65 var(--font-mono); color: rgba(255, 255, 255, .8);
+  scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .2) transparent; }
+.cs-intento + .cs-intento { margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(255, 255, 255, .07); }
+
+/* Aprender: tarjetas como fichas de cuaderno (renglones azules, margen rojo y anillado) que se dan vuelta */
+.ficha, .hoja { --renglon: 30px; position: relative; display: block; width: 100%; border: 0; padding: 0; text-align: center; cursor: pointer; }
+.ficha { height: 250px; perspective: 1200px; background: none; }
+.ficha-cara, .hoja { position: absolute; inset: 0; display: grid; place-items: center; padding: 44px 28px 22px 64px; border-radius: 6px 6px 10px 10px;
+  background:
+    radial-gradient(circle at 50% 50%, var(--bg) 0 5px, transparent 5.5px) 18px 10px / 34px 22px repeat-x,
+    linear-gradient(90deg, transparent 46px, rgba(200, 70, 80, .45) 46px 47.5px, transparent 47.5px),
+    repeating-linear-gradient(transparent 0 calc(var(--renglon) - 1px), rgba(47, 98, 196, .2) calc(var(--renglon) - 1px) var(--renglon)) 0 34px / 100% calc(100% - 34px) no-repeat,
+    #FFFEF7;
+  box-shadow: 0 1px 2px rgba(35, 20, 70, .08), 0 14px 30px -18px rgba(35, 20, 70, .35);
+  backface-visibility: hidden; transition: transform .55s cubic-bezier(.3, .7, .3, 1); }
+.ficha-frente { transform: rotate(-.6deg); }
+.ficha-dorso { transform: rotateY(180deg) rotate(.6deg); background-color: #FBFBFF; }
+.ficha-vuelta .ficha-frente { transform: rotateY(-180deg) rotate(-.6deg); }
+.ficha-vuelta .ficha-dorso { transform: rotateY(0) rotate(.6deg); }
+.ficha:hover .ficha-cara { box-shadow: 0 1px 2px rgba(35, 20, 70, .08), 0 18px 34px -16px rgba(35, 20, 70, .4); }
+.ficha:focus-visible { outline: none; }
+.ficha:focus-visible .ficha-cara { outline: 2px solid var(--blue); outline-offset: 3px; }
+.ficha-etiqueta { position: absolute; top: 26px; left: 64px; font: 600 1.35rem/1 "Caveat", cursive; color: var(--ink-hand, #6B48D0); }
+.ficha-dorso .ficha-etiqueta { color: var(--blue); }
+.ficha-texto { display: block; max-height: 100%; overflow-y: auto; font-size: 1.05rem; line-height: var(--renglon); color: var(--text); }
+.hoja { position: relative; inset: auto; min-height: 150px; place-items: start; padding-top: 58px; cursor: default; transform: rotate(-.3deg); }
+@media (max-width: 640px) { .ficha-cara, .hoja { padding-left: 52px; } .ficha-etiqueta { left: 52px; } .ficha { height: 280px; } }
+@media (prefers-reduced-motion: reduce) { .ficha-cara { transition: none; } }
+
+/* Citas como en NotebookLM: número chico en el texto y vista previa del fragmento al pasar el mouse */
+.cita-num { display: inline-grid; place-items: center; min-width: 17px; height: 17px; margin: 0 1px 0 3px; padding: 0 4px; border-radius: 999px;
+  vertical-align: 2px; font: 600 .66rem/1 var(--font-sans); color: var(--blue); background: color-mix(in srgb, var(--blue) 12%, transparent); cursor: help; }
+.cita-num:hover, .cita-num:focus-visible { color: #fff; background: var(--blue); outline: none; }
+.cita-chip { border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; font-size: .72rem; color: var(--text-secondary); background: var(--bg-card); cursor: help; }
+.cita-chip b { font-weight: 600; color: var(--blue); }
+.cita-chip:hover, .cita-chip:focus-visible { border-color: var(--blue); outline: none; }
+.cita-vista { position: fixed; z-index: 60; display: block; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border);
+  background: var(--bg-card); box-shadow: 0 16px 40px -14px rgba(35, 20, 70, .35); pointer-events: none; animation: rise .15s ease both; }

@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -10,7 +11,10 @@ from sqlmodel import Session, select
 from .config import settings
 from .db import engine, init_db
 from .models import MaterialEstudio
-from .routers import auth, plans, practicar
+from .routers import aprender, auth, plans, practicar
+from .services import llm, rag
+
+log = logging.getLogger(__name__)
 
 
 async def _reprocesar_pendientes() -> None:
@@ -21,12 +25,22 @@ async def _reprocesar_pendientes() -> None:
         await asyncio.to_thread(plans.procesar_material, id_material)
 
 
+def _precargar_modelos() -> None:
+    try:
+        rag.precargar()
+    except Exception as e:  # sin los modelos, la explicación se genera igual, sin fragmentos del material
+        log.warning("No se pudieron precargar los modelos del RAG: %s", e)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
     # No se espera: el servidor arranca mientras retoma en segundo plano. Se guarda la referencia
     # para que el recolector de basura de Python no la descarte a mitad de camino.
     app.state.tarea_pendientes = asyncio.create_task(_reprocesar_pendientes())
+    if llm.configurado():
+        # Los modelos de embeddings y re-ranking se cargan en segundo plano: la explicación elaborada los usa.
+        app.state.tarea_precarga = asyncio.create_task(asyncio.to_thread(_precargar_modelos))
     yield
 
 
@@ -45,6 +59,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api")
 app.include_router(plans.router, prefix="/api")
 app.include_router(practicar.router, prefix="/api")
+app.include_router(aprender.router, prefix="/api")
 
 
 @app.get("/api/health")

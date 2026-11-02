@@ -240,6 +240,17 @@ def _puntajes(consulta: str, textos: list[str]) -> list[float]:
     return reordenador(consulta, textos) if textos else []
 
 
+def listo() -> bool:
+    """Si los dos modelos ya están en memoria: cargarlos la primera vez tarda (y en el servidor, unos segundos)."""
+    return embedder is not None and reordenador is not None
+
+
+def precargar() -> None:
+    """Carga los modelos al arrancar el servidor, para que la primera consulta no tenga que esperarlos."""
+    _embed(["precarga"])
+    _puntajes("precarga", ["precarga"])
+
+
 class EmbeddingsLocales(Embeddings):
     """Adapta el modelo local a la interfaz de embeddings de LangChain."""
 

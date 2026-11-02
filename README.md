@@ -188,12 +188,29 @@ veces el esperado con un intento fallido previo; pista mínima y, si persiste, e
 selección de los cinco ejercicios según el nivel inicial; nivel de dominio (0,3 × A + 0,4 × P + 0,3 × C) y estado de
 cada módulo con la condición que falta.
 
+**Intervenciones con Claude** (`services/llm.py` y `services/pistas.py`), a través de LangChain: la pista mínima la
+redacta Claude Haiku y la explicación elaborada, Claude Sonnet, apoyada en los fragmentos del material del tema que
+recupera el RAG. El modelo recibe el enunciado, el código con números de línea y el error, marcados como datos, con
+la regla de no escribir código ni la solución. Cada respuesta se controla: si incluye código o es demasiado larga se
+descarta. Sin `ANTHROPIC_API_KEY`, o si el modelo no responde en 20 s, se usan los textos de respaldo por categoría
+de error. Para comprobar la clave y los dos modelos: `python -m app.services.llm`.
+
+**Aprender** (`services/aprender.py` y `routers/aprender.py`, HU-003 y HU-004): plan del tema con los conceptos
+recorridos; lección guiada en chat que explica cada concepto con citas al material y una pregunta de comprobación, y
+responde consultas libres; tarjetas de memoria, cuestionario de práctica y repetición de lo fallado; evaluación de cinco
+preguntas (cuatro de opción múltiple y una de respuesta breve) con la dificultad según el nivel inicial, que con el 60 %
+habilita Practicar. Claude Sonnet genera el contenido a partir de los fragmentos del RAG y responde en JSON; antes de
+mostrarlo se valida: citas que existan, contradicción solo entre material propio y una fuente académica, una única
+respuesta correcta y la composición de la evaluación. En la respuesta breve, un elemento cuenta solo si su cita aparece en
+lo que escribió el estudiante. Con material insuficiente (menos de dos fragmentos sobre el umbral) se avisa, y la respuesta
+desde el conocimiento general del modelo queda marcada como no respaldada.
+
 ## 9. Despliegue
 
 La demo se publica en Railway como un solo servicio (API + frontend compilado). La configuración paso a paso está en [DESPLIEGUE.md](DESPLIEGUE.md).
 
 ## 10. Próximos pasos
 
-- Servicio del modelo de lenguaje (Claude): contenido de Aprender, pistas, explicaciones y evaluación de Consolidar.
-- Endpoints y pantallas de Aprender y Consolidar (Practicar ya está completo).
+- Consolidar (evaluación de la explicación con Claude); Aprender y Practicar ya lo usan.
+- Endpoint y pantalla de Consolidar (Aprender y Practicar ya están completos).
 - Registro del dominio y del desbloqueo en la base, y reajuste del plan.

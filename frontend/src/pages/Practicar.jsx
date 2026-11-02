@@ -1,7 +1,9 @@
 import Editor from '@monaco-editor/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useOutletContext } from 'react-router-dom'
-import { IconCheck, IconLock } from '../components/Icons.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
+import Asistente from '../components/Asistente.jsx'
+import { IconLock } from '../components/Icons.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import Synapse from '../components/Synapse.jsx'
 import { api } from '../lib/api.js'
@@ -17,7 +19,7 @@ import { LANGUAGES, MODULES } from '../lib/format.js'
 const AVISO_MS = 30_000
 const INACTIVIDAD_MS = 5 * 60_000
 const m = MODULES.practicar
-const PUNTOS = { 10: 'sin ayuda', 7: 'con pista', 4: 'con explicación' }
+const PUNTOS = { 10: 'sin ayuda', 7: 'con pistas', 4: 'con explicación' }
 
 // Tiempo activo por ejercicio, guardado en este navegador para que recargar no lo reinicie.
 const leerTiempo = (id) => { try { return Number(localStorage.getItem(`tiempo-${id}`)) || 0 } catch { return 0 } }
@@ -39,7 +41,7 @@ export default function Practicar() {
   if (error && !estado) return <p role="alert" className="text-red">{error}</p>
   if (!estado) return <Synapse>Buscando tu próximo ejercicio</Synapse>
   if (!estado.ejercicio) return <Bloqueado estado={estado} />
-  return <Ejercicio key={estado.ejercicio.id} plan={plan} estado={estado} onSiguiente={() => { cargar(); reload() }} />
+  return <Ejercicio key={`${estado.ejercicio.id}-${estado.ejercicio.intentos.length}`} plan={plan} estado={estado} onSiguiente={() => { cargar(); reload() }} />
 }
 
 function SinPlan() {
@@ -70,7 +72,8 @@ function Ejercicio({ plan, estado, onSiguiente }) {
   const ej = estado.ejercicio
   const [lenguaje, setLenguaje] = useState(ej.lenguaje_fijo ?? estado.lenguaje)
   const [codigos, setCodigos] = useState(() => ({ ...ej.plantillas, ...(ej.codigo && ej.lenguaje_fijo ? { [ej.lenguaje_fijo]: ej.codigo } : {}) }))
-  const [intentos, setIntentos] = useState(ej.intentos)
+  const [intentos, setIntentos] = useState(ej.intentos) // { n, resultado, tipo_error } y, si se enviaron en esta visita, el detalle
+  const { config } = useAuth()
   const [ultimo, setUltimo] = useState(null) // resultado del último envío
   const [intervencion, setIntervencion] = useState(ej.intervenciones.at(-1) ?? null)
   const [puntosPosibles, setPuntosPosibles] = useState(ej.puntos_posibles)
@@ -78,6 +81,7 @@ function Ejercicio({ plan, estado, onSiguiente }) {
   const [resuelto, setResuelto] = useState(false)
   const [aprobado, setAprobado] = useState(estado.aprobado)
   const [enviando, setEnviando] = useState(false)
+  const [lento, setLento] = useState(false)  // la respuesta tarda: el sistema está redactando la pista
   const [error, setError] = useState('')
   const fijo = intentos.length > 0 ? (ej.lenguaje_fijo ?? lenguaje) : null
 
@@ -97,40 +101,44 @@ function Ejercicio({ plan, estado, onSiguiente }) {
     const aviso = setInterval(() => {
       if (resuelto) return
       api(`/plans/${plan.id}/practicar/tiempo`, { method: 'POST', body: { id_ejercicio: ej.id, tiempo_activo: tiempo.current } })
-        .then((r) => { if (r.intervencion) { setIntervencion(r.intervencion); setPuntosPosibles(7) } }).catch(() => {})
+        .then((r) => { if (r.intervencion) { setIntervencion(r.intervencion); setPuntosPosibles((x) => Math.min(x, 7)) } }).catch(() => {})
     }, AVISO_MS)
     return () => { clearInterval(tic); clearInterval(aviso) }
   }, [ej.id, plan.id, resuelto])
 
   const ejecutar = async () => {
     setEnviando(true); setError('')
+    const aviso = setTimeout(() => setLento(true), 2500)
     try {
       const r = await api(`/plans/${plan.id}/practicar/intentos`, {
         method: 'POST', body: { id_ejercicio: ej.id, lenguaje, codigo: codigos[lenguaje], tiempo_activo: tiempo.current },
       })
       setUltimo(r)
-      setIntentos((xs) => [...xs, { n: r.intento, resultado: r.resultado, tipo_error: r.tipo_error }])
-      if (r.intervencion) { setIntervencion(r.intervencion); setPuntosPosibles(r.intervencion.nivel === 1 ? 7 : 4) }
+      setIntentos((xs) => [...xs, { n: r.intento, resultado: r.resultado, tipo_error: r.tipo_error, mensaje: r.mensaje, casos: r.casos,
+        motivo: r.intervencion?.motivo }])
+      // Los puntos solo bajan: una pista nueva después de una explicación no los vuelve a subir.
+      if (r.intervencion) { setIntervencion(r.intervencion); setPuntosPosibles((x) => Math.min(x, r.intervencion.nivel === 1 ? 7 : 4)) }
       if (r.resultado === 'correcto') { setResuelto(true); setResueltos(r.resueltos); setAprobado(r.aprobado) }
-    } catch (e) { setError(e.message) } finally { setEnviando(false) }
+    } catch (e) { setError(e.message) } finally { clearTimeout(aviso); setLento(false); setEnviando(false) }
   }
 
   const cambiarLenguaje = (l) => { if (!fijo) setLenguaje(l) }
+  const aPlantilla = () => setCodigos((c) => ({ ...c, [lenguaje]: ej.plantillas[lenguaje] }))
+  // Solo en modo prueba (DEV_LOGIN): borra intentos, pistas y puntos del ejercicio para volver a probarlo.
+  const reiniciar = async () => {
+    setError('')
+    try {
+      await api(`/plans/${plan.id}/practicar/ejercicios/${ej.id}`, { method: 'DELETE' })
+      guardarTiempo(ej.id, 0)
+      onSiguiente()
+    } catch (e) { setError(e.message) }
+  }
   const onEditar = (valor) => { ultimaEdicion.current = Date.now(); setCodigos((c) => ({ ...c, [lenguaje]: valor ?? '' })) }
   const titulo = ej.posicion ? `Ejercicio ${ej.posicion} de ${estado.requeridos}` : ej.es_repaso ? 'Repaso' : 'Práctica adicional'
 
   return (
     <div className="grid gap-6" style={{ '--c': m.color }}>
-      <PageHeader title="Módulo" accent={m.label} accentColor={m.color} sub={`${estado.tema} · ${titulo} · ${ej.dificultad}`}
-        action={<div className="flex flex-wrap items-center gap-2">
-          {intervencion && !resuelto && <span className="pill" style={{ '--c': 'var(--orange)' }}>Posible bloqueo detectado</span>}
-          <div role="radiogroup" aria-label="Lenguaje" className="flex gap-1.5">
-            {Object.entries(LANGUAGES).map(([k, label]) => (
-              <button key={k} type="button" role="radio" aria-checked={lenguaje === k} disabled={!!fijo && fijo !== k}
-                className="chip no-check" onClick={() => cambiarLenguaje(k)}>{label}</button>
-            ))}
-          </div>
-        </div>} />
+      <PageHeader title="Módulo" accent={m.label} accentColor={m.color} sub={`${estado.tema} · ${titulo} · ${ej.dificultad}`} />
 
       <section className="rounded-2xl border border-dashed border-rule bg-[color-mix(in_srgb,var(--bg-card)_70%,transparent)] px-5 py-4">
         <h2 className="text-[1.05rem] font-medium tracking-[-.01em]">{ej.titulo}</h2>
@@ -144,32 +152,49 @@ function Ejercicio({ plan, estado, onSiguiente }) {
       </section>
 
       <section className="overflow-hidden rounded-2xl bg-[#1e1e1e] shadow-sm">
-        <Editor height="300px" language={lenguaje} theme="vs-dark" value={codigos[lenguaje]} onChange={onEditar}
-          options={{ minimap: { enabled: false }, fontSize: 14, fontFamily: 'JetBrains Mono, monospace', scrollBeyondLastLine: false,
-            tabSize: 4, automaticLayout: true, padding: { top: 14 }, readOnly: resuelto }}
-          loading={<span className="text-sm text-white/60">Cargando el editor…</span>}
-          onMount={(editor, monaco) => editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => document.getElementById('ejecutar')?.click())} />
-        <Consola intentos={intentos} ultimo={ultimo} intervencion={intervencion} />
+        {/* El ayudante vive en la esquina del editor: la pista aparece donde el estudiante está mirando */}
+        <div className="relative">
+          <Editor height="380px" language={lenguaje} theme="vs-dark" value={codigos[lenguaje]} onChange={onEditar}
+            options={{ minimap: { enabled: false }, fontSize: 14, fontFamily: 'JetBrains Mono, monospace', scrollBeyondLastLine: false,
+              tabSize: 4, automaticLayout: true, padding: { top: 14 }, readOnly: resuelto }}
+            loading={<span className="text-sm text-white/60">Cargando el editor…</span>}
+            onMount={(editor, monaco) => editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => document.getElementById('ejecutar')?.click())} />
+          <Ayudante enviando={enviando} lento={lento} intentos={intentos} ultimo={ultimo} intervencion={intervencion} resuelto={resuelto} />
+        </div>
+        {/* Barra de la consola: lenguaje a la izquierda y ejecutar a la derecha, como en un IDE */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 bg-[#252526] px-4 py-2">
+          <div role="radiogroup" aria-label="Lenguaje" className="flex items-center gap-1">
+            {Object.entries(LANGUAGES).map(([k, label]) => (
+              <button key={k} type="button" role="radio" aria-checked={lenguaje === k} disabled={!!fijo && fijo !== k}
+                title={fijo && fijo !== k ? 'El lenguaje se puede cambiar en el próximo ejercicio' : undefined}
+                className="cs-lenguaje" onClick={() => cambiarLenguaje(k)}>{label}</button>
+            ))}
+          </div>
+          {resuelto
+            ? <div className="flex flex-wrap items-center gap-2">
+                {config?.dev_login && <button type="button" className="cs-accion cs-accion-prueba" onClick={reiniciar}
+                  title="Modo prueba: borra los intentos, las pistas y los puntos de este ejercicio">Reiniciar ejercicio</button>}
+                <button type="button" className="cs-run cs-run-ok" onClick={onSiguiente}>{aprobado ? 'Practicar otro' : 'Siguiente ejercicio'} →</button>
+              </div>
+            : <div className="flex flex-wrap items-center gap-2">
+                <button type="button" className="cs-accion" onClick={aPlantilla} title="Vuelve el editor al código inicial (los intentos quedan registrados)">↺ Plantilla</button>
+                {config?.dev_login && intentos.length > 0 && (
+                  <button type="button" className="cs-accion cs-accion-prueba" onClick={reiniciar}
+                    title="Modo prueba: borra los intentos, las pistas y los puntos de este ejercicio">Reiniciar ejercicio</button>
+                )}
+                <span className="mx-1 hidden font-mono text-[.7rem] text-white/40 md:inline">Ctrl + Enter</span>
+                <button id="ejecutar" type="button" className="cs-run" disabled={enviando} onClick={ejecutar}>
+                  {enviando ? <span className="cs-spin" aria-hidden="true" /> : <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 1.8v8.4L10 6z" /></svg>}
+                  {enviando ? (lento ? 'Analizando…' : 'Ejecutando…') : 'Ejecutar'}
+                </button>
+              </div>}
+        </div>
+        <Consola intentos={intentos} />
       </section>
 
-      {intervencion && !resuelto && (
-        <section className="card border-l-2 !border-l-orange px-5 py-4 text-[.95rem]" aria-live="polite">
-          <b className="font-medium">{intervencion.nivel === 1 ? 'Pista (nivel 1 de 2):' : 'Explicación (nivel 2 de 2):'}</b> {intervencion.texto}
-        </section>
-      )}
-      {resuelto && ultimo?.resultado === 'correcto' && (
-        <section className="card flex items-center gap-3 border-l-2 !border-l-green px-5 py-4 text-[.95rem]" aria-live="polite">
-          <IconCheck className="size-4 flex-none text-green" />
-          <span>{ultimo.mensaje}{ultimo.puntos_obtenidos ? ` Sumás ${ultimo.puntos_obtenidos} puntos (${PUNTOS[ultimo.puntos_obtenidos]}).` : ' Ya lo habías resuelto: no suma puntos de nuevo.'}</span>
-        </section>
-      )}
       {error && <p role="alert" className="text-sm text-red">{error}</p>}
 
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        {resuelto
-          ? <button type="button" className="btn btn-primary" onClick={onSiguiente}>{aprobado ? 'Practicar otro' : 'Siguiente ejercicio'} <span className="arrow">→</span></button>
-          : <button id="ejecutar" type="button" className="btn btn-primary" disabled={enviando} onClick={ejecutar}>
-              {enviando ? 'Ejecutando…' : 'Ejecutar código'}</button>}
+      <div className="flex flex-wrap items-center justify-end gap-4">
         <div className="flex flex-wrap items-center gap-4">
           <p className="text-right text-xs text-muted">
             Ejercicios resueltos: <span className="text-fg">{Math.min(resueltos, estado.requeridos)} de {estado.requeridos}</span>
@@ -184,23 +209,63 @@ function Ejercicio({ plan, estado, onSiguiente }) {
   )
 }
 
+// Qué dice el ayudante en cada momento: la pista o la explicación tienen prioridad mientras no se resuelva.
+function Ayudante({ enviando, lento, intentos, ultimo, intervencion, resuelto }) {
+  if (resuelto && ultimo?.resultado === 'correcto') {
+    return (
+      <Asistente estado="festeja" titulo="¡Lo lograste!" clave="festeja">
+        {ultimo.mensaje}{ultimo.puntos_obtenidos ? ` Sumás ${ultimo.puntos_obtenidos} puntos (${PUNTOS[ultimo.puntos_obtenidos]}).` : ' Ya lo habías resuelto: no suma puntos de nuevo.'}
+      </Asistente>
+    )
+  }
+  if (enviando && lento) return <Asistente estado="pensando" clave="pensando">Estoy mirando tu código…</Asistente>
+  if (intervencion) {
+    const nivel1 = intervencion.nivel === 1
+    return (
+      <Asistente estado={nivel1 ? 'pista' : 'explicacion'} aviso={intervencion.etiqueta ?? 'Posible bloqueo detectado'} clave={`intervencion-${intervencion.nivel}`}
+        titulo={nivel1 ? 'Pista (nivel 1 de 2)' : 'Explicación (nivel 2 de 2)'}>
+        <TextoConCodigo texto={intervencion.texto} />
+      </Asistente>
+    )
+  }
+  if (intentos.length) {
+    const sintaxis = intentos.at(-1).resultado === 'error de sintaxis'
+    return (
+      <Asistente estado="mirando" clave={`intento-${intentos.length}`}>
+        {sintaxis ? 'El código no compila: mirá la línea que marca la consola y probá de nuevo.'
+          : 'Revisá en la consola qué caso falló y probá de nuevo. Si veo que te trabás, te doy una pista.'}
+      </Asistente>
+    )
+  }
+  return <Asistente estado="espera" clave="espera">Escribí tu solución y ejecutala. Si veo que te trabás, te doy una pista.</Asistente>
+}
+
+// El modelo marca el código entre comillas invertidas (`return 0`): se muestra con fuente de código.
+function TextoConCodigo({ texto }) {
+  return texto.split(/(`[^`\n]+`)/).map((parte, i) => (parte.length > 2 && parte.startsWith('`') && parte.endsWith('`')
+    ? <code key={i} className="rounded bg-black/5 px-1 py-0.5 font-mono text-[.85em]">{parte.slice(1, -1)}</code>
+    : parte))
+}
+
 const fmtLlamada = (entrada) => `(${entrada.map((v) => JSON.stringify(v)).join(', ')})`
 
-// Debajo del editor: historial de intentos del ejercicio y detalle del último envío, como una terminal.
-function Consola({ intentos, ultimo, intervencion }) {
-  if (!intentos.length) return <div className="border-t border-white/10 px-5 py-3 font-mono text-xs text-white/40">&gt; Ejecutá el código para ver el resultado de los casos de prueba (Ctrl + Enter).</div>
-  const recientes = intentos.slice(-4)
+// Debajo del editor: todos los intentos del ejercicio, como una terminal con su propio scroll. Cada intento
+// enviado en esta visita muestra el detalle completo; al llegar uno nuevo baja sola hasta el final.
+function Consola({ intentos }) {
+  const ref = useRef(null)
+  useEffect(() => { ref.current?.scrollTo({ top: ref.current.scrollHeight, behavior: 'smooth' }) }, [intentos.length])
   return (
-    <div className="grid gap-1 border-t border-white/10 px-5 py-3 font-mono text-[.78rem] leading-relaxed text-white/80" aria-live="polite">
-      {recientes.map((i) => (
-        <p key={i.n}>&gt; Intento {i.n}: {i.resultado === 'correcto' ? <span className="text-[#7fd1a3]">correcto</span>
-          : <>{i.tipo_error?.replace(/^[^:]+: /, '')} <span className="text-white/50">({i.resultado})</span></>}</p>
+    <div ref={ref} className="cs-salida" aria-live="polite" aria-label="Consola">
+      {!intentos.length && <p className="text-white/40">&gt; Ejecutá el código para ver el resultado de los casos de prueba.</p>}
+      {intentos.map((i) => (
+        <div key={i.n} className="cs-intento">
+          <p>&gt; Intento {i.n}: {i.resultado === 'correcto' ? <span className="text-[#7fd1a3]">correcto</span>
+            : <>{i.tipo_error?.replace(/^[^:]+: /, '')} <span className="text-white/50">({i.resultado})</span></>}</p>
+          {i.mensaje && i.resultado !== 'correcto' && i.mensaje.split('\n').map((l, k) => <p key={k} className="pl-4 text-[#f2b880]">{l}</p>)}
+          {i.casos?.length > 0 && <p className="pl-4 text-white/50">Casos: {i.casos.map((c) => (c.estado === 'OK' ? '✓' : '✗')).join(' ')}</p>}
+          {i.motivo && <p className="pl-4 text-[#C9B8FF]">↳ {i.motivo}</p>}
+        </div>
       ))}
-      {ultimo && ultimo.resultado !== 'correcto' && <p className="text-[#f2b880]">&gt; {ultimo.mensaje.split('\n')[0]}</p>}
-      {ultimo?.casos?.length > 0 && (
-        <p className="text-white/50">&gt; Casos: {ultimo.casos.map((c) => (c.estado === 'OK' ? '✓' : '✗')).join(' ')}</p>
-      )}
-      {intervencion && ultimo?.resultado !== 'correcto' && <p className="text-white/50">&gt; {intervencion.motivo}</p>}
     </div>
   )
 }

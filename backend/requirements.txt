@@ -8,6 +8,8 @@ python-multipart==0.0.26
 # RAG (HU-003): LangChain + ChromaDB, modelo de embeddings local y lectura de PDF/DOCX
 langchain-chroma==1.1.0
 langchain-text-splitters==1.1.3
+# Modelo de lenguaje (Claude) a través de LangChain
+langchain-anthropic==1.7.7
 chromadb==1.5.9
 fastembed==0.8.1
 pypdf==6.19.0
