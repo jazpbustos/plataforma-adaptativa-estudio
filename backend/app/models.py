@@ -50,6 +50,10 @@ class Estudiante(SQLModel, table=True):
     fecha_registro: datetime = Field(default_factory=ahora)
     foto_url: str | None = None  # fuera del DER: la foto de perfil de Google que se muestra en el panel
     lenguaje_preferido: str | None = None  # fuera del DER: precompleta el lenguaje al crear un objetivo nuevo
+    # fuera del DER: versión de las sesiones. Cada token lleva la versión vigente al emitirse; al cerrar sesión o
+    # revocarla, la versión aumenta y los tokens anteriores dejan de valer, aunque alguien tenga una copia que
+    # todavía no venció (Seguridad).
+    version_sesion: int | None = None
 
 
 class ObjetivoEstudio(SQLModel, table=True):

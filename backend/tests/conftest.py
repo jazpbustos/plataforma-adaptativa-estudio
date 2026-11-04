@@ -34,9 +34,15 @@ def reranking_falso(consulta, textos):
     return [sum(a * b for a, b in zip(q, v)) for v in vs]
 
 
+def tokens_falsos(texto):
+    """Reemplaza al tokenizador real (se descarga): una palabra o un símbolo por token, más los dos especiales."""
+    return len(re.findall(r"\w+|[^\w\s]", texto)) + 2
+
+
 @pytest.fixture(autouse=True)
 def sin_modelo_real(monkeypatch):
     from app.services import rag
     monkeypatch.setattr(rag, "embedder", embedding_falso)
     monkeypatch.setattr(rag, "reordenador", reranking_falso)
+    monkeypatch.setattr(rag, "tokenizador", tokens_falsos)
     rag.vaciar()

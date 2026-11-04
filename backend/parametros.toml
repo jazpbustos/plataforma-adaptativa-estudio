@@ -22,8 +22,9 @@ max_archivos_por_tema = 20
 cuota_mb_por_estudiante = 200
 
 [rag]                                # Estructura de Datos: las cinco etapas del procesamiento
-tam_fragmento = 400                  # caracteres: entra completo en los 128 tokens del modelo
+tam_fragmento = 400                  # caracteres
 solapamiento = 60
+max_tokens = 128                     # límite del modelo de embeddings, con los tokens especiales: el fragmento que se pasa se subdivide
 max_ilegible = 0.5                   # si la mitad o más de una línea son glifos ilegibles del PDF (U+FFFF), se descarta la línea
 fragmento_minimo = 30               # más corto que esto (un título suelto) no se indexa si el archivo tiene más texto
 candidatos = 20                      # se piden más fragmentos a ChromaDB: el re-ranking los reordena y la diversidad elige 6
@@ -31,7 +32,7 @@ reranking = true                     # reordenar los candidatos con el cross-enc
 max_por_origen = 3                   # fuentes académicas: como mucho 3 de los 6 de un mismo libro (con 2 se pierden respuestas: ver informe)
 max_por_origen_propio = 0            # material propio: sin máximo (0); los apuntes del estudiante suelen ser pocos
 k_por_fuente = 6                    # fragmentos más similares de cada fuente (propia y académica)
-similitud_minima = 0.45              # coseno; calibrado con evaluacion/consultas.json (valor inicial de la E3: 0,35; ver informe.md)
+similitud_minima = 0.45              # similitud coseno = 1 − distancia que devuelve ChromaDB; calibrado con evaluacion/consultas.json (valor inicial de la E3: 0,35; ver informe.md)
 vecinos = 1                          # al recuperar, se agregan los fragmentos anterior y siguiente como contexto
 fragmentos_minimos = 2              # HU-003 CA5: con menos, el material es insuficiente
 modelo_embeddings = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"

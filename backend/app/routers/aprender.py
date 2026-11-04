@@ -233,12 +233,16 @@ def explicar(plan_id: int, body: LeccionIn, est: Estudiante = Depends(current_us
     tema = _tema(db, obj)
     if body.concepto not in _conceptos(tema):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Concepto no encontrado en este tema")
+    propios = _propios(db, obj)
     guardada = _contenido(db, obj).get(body.concepto)
-    if guardada and guardada.get("version") == gen.VERSION_EXPLICACION and (not guardada.get("no_respaldada") or body.general):
+    # Se reutiliza la explicación guardada solo si se hizo con el mismo material propio: si el estudiante subió o
+    # borró un archivo después, se vuelve a generar para que lo tenga en cuenta.
+    if (guardada and guardada.get("version") == gen.VERSION_EXPLICACION and guardada.get("propios", []) == propios
+            and (not guardada.get("no_respaldada") or body.general)):
         return {"concepto": body.concepto, **guardada}
     fragmentos = None
     if not body.general:
-        r = _fragmentos(obj, body.concepto, _propios(db, obj))
+        r = _fragmentos(obj, body.concepto, propios)
         if not r["suficiente"]:
             return {"concepto": body.concepto, "insuficiente": True}
         fragmentos = r["fragmentos"]
@@ -248,6 +252,7 @@ def explicar(plan_id: int, body: LeccionIn, est: Estudiante = Depends(current_us
                                             plan=_conceptos(tema))
     except llm.ModeloNoDisponible:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, NO_DISPONIBLE)
+    explicacion["propios"] = propios
     s = _sesion_del_dia(db, obj, LECCION)
     d = _detalle(s)
     d.setdefault("contenido", {})[body.concepto] = explicacion

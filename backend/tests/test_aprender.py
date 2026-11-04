@@ -172,6 +172,24 @@ def test_plan_del_tema_y_leccion_guiada(client, modelo, material):
     assert r["contradicciones"][0]["concepto"] == "caso base"
 
 
+def test_la_leccion_se_regenera_si_cambia_el_material_propio(client, modelo, material):
+    """Una explicación guardada no se reutiliza si el estudiante subió o borró material después."""
+    from app.models import MaterialEstudio
+    modelo.respuestas["Tarea: explicá"] = [explicacion(), explicacion()]
+    url = f"/api/plans/{client.plan}/aprender/leccion"
+    client.post(url, json={"concepto": "caso base"})
+    client.post(url, json={"concepto": "caso base"})
+    assert len(modelo.pedidos) == 1  # mismo material: se reutiliza
+    with Session(engine) as db:
+        db.add(MaterialEstudio(id_objetivo=client.plan, nombre_archivo="apunte.pdf", tipo_archivo="pdf",
+                               ruta_archivo="x.pdf", tamano_bytes=10, estado="procesado"))
+        db.commit()
+    client.post(url, json={"concepto": "caso base"})
+    assert len(modelo.pedidos) == 2  # material nuevo: se vuelve a generar con él
+    client.post(url, json={"concepto": "caso base"})
+    assert len(modelo.pedidos) == 2
+
+
 def test_material_insuficiente_y_explicacion_no_respaldada(client, modelo, material):
     material["suficiente"] = False
     r = client.post(f"/api/plans/{client.plan}/aprender/leccion", json={"concepto": "pila de llamadas"}).json()

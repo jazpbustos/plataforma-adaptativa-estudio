@@ -50,10 +50,10 @@ def verify_google_access_token(access_token: str) -> dict:
     return cuenta
 
 
-def create_token(id_estudiante: int, rol: str = ROL_ESTUDIANTE) -> str:
-    """JWT propio con validez de ocho horas (Seguridad). Lleva la identidad y el rol del usuario."""
+def create_token(id_estudiante: int, rol: str = ROL_ESTUDIANTE, version: int = 0) -> str:
+    """JWT propio con validez de ocho horas (Seguridad). Lleva la identidad, el rol y la versión de sesión."""
     now = datetime.now(timezone.utc)
-    payload = {"sub": str(id_estudiante), "rol": rol, "iat": now,
+    payload = {"sub": str(id_estudiante), "rol": rol, "ver": version, "iat": now,
                "exp": now + timedelta(minutes=settings.jwt_expire_minutes)}
     return jwt.encode(payload, settings.jwt_secret, algorithm=ALGORITHM)
 
@@ -61,7 +61,7 @@ def create_token(id_estudiante: int, rol: str = ROL_ESTUDIANTE) -> str:
 def set_session_cookie(response: Response, est: Estudiante) -> None:
     response.set_cookie(
         COOKIE_NAME,
-        create_token(est.id_estudiante, est.rol),
+        create_token(est.id_estudiante, est.rol, est.version_sesion or 0),
         max_age=settings.jwt_expire_minutes * 60,
         httponly=True,
         secure=settings.cookie_secure,
@@ -88,14 +88,33 @@ def current_user(
         raise unauthorized
     if not user:
         raise unauthorized
+    # Revocación: un token emitido antes del último cierre de sesión (o de una revocación hecha por el
+    # responsable técnico) lleva una versión vieja y se rechaza aunque no haya vencido.
+    if payload.get("ver", 0) != (user.version_sesion or 0):
+        raise unauthorized
     return user
+
+
+def revocar_sesiones(db: Session, user: Estudiante) -> None:
+    """Invalida todos los tokens del usuario emitidos hasta ahora, en cualquier dispositivo."""
+    user.version_sesion = (user.version_sesion or 0) + 1
+    db.add(user)
+    db.commit()
+
+
+def usuario_del_token(session_token: str | None, db: Session) -> Estudiante | None:
+    """El usuario de una cookie de sesión, o None si no hay cookie o no es válida (sin lanzar error)."""
+    try:
+        return current_user(session_token, db)
+    except HTTPException:
+        return None
 
 
 def solo_administrador(user: Estudiante = Depends(current_user)) -> Estudiante:
     """Opciones reservadas al administrador (Tabla de niveles de acceso): temas, fuentes, ejercicios y roles.
 
-    El rol se toma de la base, no de un parámetro del navegador: si se le quitó el rol a alguien, deja de
-    valer aunque su token todavía no haya vencido.
+    El rol se toma de la base en cada solicitud, no del token ni de un parámetro del navegador: si se le
+    quitó el rol a alguien, deja de valer en su siguiente solicitud, aunque su token todavía no haya vencido.
     """
     if user.rol != ROL_ADMIN:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Esta opción es solo para administradores")

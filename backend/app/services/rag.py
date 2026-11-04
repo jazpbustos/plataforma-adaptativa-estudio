@@ -7,10 +7,12 @@ fuentes usa el modelo de lenguaje):
 1. Extracción: PDF página por página, DOCX sección por sección y PPTX diapositiva por diapositiva,
    con la página, sección o diapositiva de origen en `pagina_o_seccion`. Antes de fragmentar, el texto
    se normaliza (ligaduras, glifos ilegibles y, en los PDF, palabras cortadas con guion).
-2. Segmentación: fragmentos de hasta 400 caracteres con 60 de superposición.
+2. Segmentación: fragmentos de hasta 400 caracteres con 60 de superposición; los que superan los 128
+   tokens del modelo (contados con su tokenizador) se subdividen antes de vectorizar.
 3. Representación vectorial: paraphrase-multilingual-MiniLM-L12-v2, local (FastEmbed, sin costo por uso).
 4. Recuperación: los seis mejores fragmentos de cada fuente (propia y académica), filtrados por tema:
-   de los candidatos más similares se descartan los que no alcanzan la similitud coseno mínima (0,45,
+   de los candidatos más similares se descartan los que no alcanzan la similitud coseno mínima. ChromaDB
+   devuelve la distancia coseno y LangChain la convierte en similitud = 1 − distancia (0,45,
    calibrada con evaluacion/consultas.json; el valor inicial de la E3 era 0,35), un
    cross-encoder multilingüe los reordena según si responden la consulta (re-ranking) y se eligen
    con un máximo por origen (los lugares libres se completan con más candidatos de otras fuentes).
@@ -175,15 +177,50 @@ def normalizar(texto: str) -> str:
 
 # ---------------- Fragmentación ----------------
 
+SEPARADORES = ["\n\n", "\n", ". ", " ", ""]
+tokenizador = None  # se crea al primer uso; los tests lo reemplazan por uno falso
+
+
+def contar_tokens(texto: str) -> int:
+    """Tokens del texto según el tokenizador del modelo de embeddings, incluidos los especiales (<s> y </s>).
+
+    Es el mismo tokenizador del modelo (la librería tokenizers ya viene con FastEmbed) y sin truncar:
+    si truncara en 128, nunca se vería un fragmento que se pasa.
+    """
+    global tokenizador
+    with _lock:
+        if tokenizador is None:
+            from tokenizers import Tokenizer
+            tok = Tokenizer.from_pretrained(R["modelo_embeddings"])
+            tok.no_truncation()
+            tokenizador = lambda t: len(tok.encode(t).ids)  # noqa: E731
+    return tokenizador(texto)
+
+
+def _dentro_del_limite(fragmento: str) -> list[str]:
+    """Control de longitud antes de vectorizar (corrección de la Entrega 3).
+
+    400 caracteres no garantizan 128 tokens: el código y la notación se parten en muchos tokens. Si un
+    fragmento se pasa, se vuelve a dividir midiendo en tokens hasta que cada parte entre. Los demás
+    fragmentos quedan igual, y con ellos la calibración del umbral.
+    """
+    if contar_tokens(fragmento) <= R["max_tokens"]:
+        return [fragmento]
+    divisor = RecursiveCharacterTextSplitter(chunk_size=R["max_tokens"], chunk_overlap=0, keep_separator="end",
+                                             separators=SEPARADORES, length_function=contar_tokens)
+    return [p.strip() for p in divisor.split_text(fragmento) if p.strip()]
+
+
 def fragmentar(texto: str, tam: int = TAM_FRAGMENTO, solape: int = SOLAPAMIENTO) -> list[str]:
     """Corta primero por párrafos, después por líneas, oraciones y palabras, hasta que cada fragmento entre en `tam`.
 
     El separador de oraciones queda al final del fragmento (keep_separator="end"): así ninguno empieza con
-    el punto de la oración anterior.
+    el punto de la oración anterior. Después, los que superan el máximo de tokens del modelo se subdividen;
+    cada parte sigue en la misma sección, así conserva la página o sección de origen y su orden.
     """
     divisor = RecursiveCharacterTextSplitter(chunk_size=tam, chunk_overlap=solape, keep_separator="end",
-                                             separators=["\n\n", "\n", ". ", " ", ""])
-    return [f.strip() for f in divisor.split_text(texto) if f.strip()]
+                                             separators=SEPARADORES)
+    return [p for f in divisor.split_text(texto) if f.strip() for p in _dentro_del_limite(f.strip())]
 
 
 # ---------------- Embeddings y ChromaDB ----------------
@@ -305,6 +342,11 @@ def indexar(secciones: list[Seccion], *, id_origen: int, id_tema: int, fuente: s
     if docs:
         vs.add_texts(docs, metadatas=metas, ids=[f"{prefijo}-{n}" for n in range(len(docs))])  # id_fragmento
     return len(docs)
+
+
+def borrar_origen(fuente: str, id_origen: int) -> None:
+    """Quita de ChromaDB todos los fragmentos de un material propio o de una fuente académica."""
+    almacen().delete(where={"$and": [{"fuente": fuente}, {"id_origen": id_origen}]})
 
 
 def _de_una_fuente(consulta: str, filtro: dict, k: int, minima: float, max_por_origen: int) -> list[dict]:

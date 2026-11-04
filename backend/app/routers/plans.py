@@ -4,6 +4,7 @@ La API mantiene los nombres que usa el front (plan, topic, sessions…) y los tr
 entidades del DER: objetivo_estudio, tema, material_estudio, nivel_dominio, sesion_estudio y punto.
 """
 import logging
+import threading
 from datetime import date, timedelta
 from pathlib import Path
 from uuid import uuid4
@@ -22,6 +23,9 @@ from ..services.planner import (MODULES, DiasInsuficientes, construir_dias, dia_
 
 router = APIRouter(tags=["planes"])
 log = logging.getLogger(__name__)
+# Cola de procesamiento (Análisis de Costos, concurrencia): los archivos se extraen e indexan de a uno, para que
+# varias cargas simultáneas no compitan por el procesador con las consultas de los estudiantes.
+_cola_procesamiento = threading.Semaphore(1)
 M = P["material"]
 MB = 1024 * 1024
 FORMATOS = set(M["formatos"])
@@ -160,7 +164,7 @@ def procesar_material(id_material: int) -> None:
     Estado final: "procesado"; "sin texto" si no se pudo extraer texto (un documento escaneado o una
     presentación solo con imágenes); o "con error" si el archivo está dañado.
     """
-    with Session(engine) as db:
+    with _cola_procesamiento, Session(engine) as db:
         mat = db.get(MaterialEstudio, id_material)
         obj = db.get(ObjetivoEstudio, mat.id_objetivo)
         try:
@@ -203,6 +207,27 @@ def list_materials(est: Estudiante = Depends(current_user), db: Session = Depend
          "uploaded_at": m.fecha_carga, "plan_id": o.id_objetivo, "topic": t.nombre}
         for m, o, t in filas
     ]
+
+
+@router.delete("/materials/{id_material}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_material(id_material: int, est: Estudiante = Depends(current_user), db: Session = Depends(get_session)):
+    """Elimina un archivo del material propio (Tabla de niveles de acceso: consultar, cargar y eliminar el propio).
+
+    Se borran el archivo del servidor, sus fragmentos de ChromaDB y el registro, en ese orden, de modo que el
+    material deja de usarse en las respuestas y libera la cuota. Solo puede borrarlo su dueño; mientras se está
+    procesando se rechaza, para que el procesamiento no vuelva a guardar fragmentos de un archivo ya borrado.
+    """
+    fila = db.exec(select(MaterialEstudio).join(ObjetivoEstudio)
+                   .where(MaterialEstudio.id_material == id_material,
+                          ObjetivoEstudio.id_estudiante == est.id_estudiante)).first()
+    if not fila:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Material no encontrado")
+    if fila.estado == "pendiente":
+        raise HTTPException(status.HTTP_409_CONFLICT, "El archivo todavía se está procesando. Probá en unos segundos.")
+    Path(fila.ruta_archivo).unlink(missing_ok=True)
+    rag.borrar_origen(rag.PROPIA, fila.id_material)
+    db.delete(fila)
+    db.commit()
 
 
 @router.get("/materials/limits")

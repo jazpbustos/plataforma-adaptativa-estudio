@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { GoogleOAuthProvider, useGoogleLogin } from '@react-oauth/google'
-import { Link, Navigate, useLocation } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import PaperTopbar from '../components/PaperTopbar.jsx'
 import { Floaty, DocDoodle, CodeDoodle, MedalDoodle, QuizDoodle } from '../components/Doodles.jsx'
@@ -10,10 +10,9 @@ export default function Login() {
   const { user, config, loading, loginGoogle, loginDev } = useAuth()
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  const from = useLocation().state?.from?.pathname || '/app'
-
-  // HU-001: el primer ingreso (todavía sin objetivo de estudio) va a la configuración; si ya tiene uno, al panel.
-  if (!loading && user) return <Navigate to={user.has_plan ? from : '/empezar'} replace />
+  // HU-001: el primer ingreso (todavía sin objetivo de estudio) va a la configuración; si ya tiene uno, al Inicio.
+  // Siempre al Inicio, no a la pantalla donde quedó: el avance está guardado en el servidor, no en la URL.
+  if (!loading && user) return <Navigate to={user.has_plan ? '/app' : '/empezar'} replace />
 
   const run = async (fn) => {
     setError(''); setBusy(true)

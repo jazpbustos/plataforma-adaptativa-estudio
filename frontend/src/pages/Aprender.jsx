@@ -70,14 +70,6 @@ export default function Aprender() {
           <div>
             <h2 className="font-medium">Plan del tema</h2>
             <p className="text-xs text-muted">{recorridos} de {estado.conceptos.length} conceptos recorridos</p>
-            {/* Leyenda: el tilde marca el concepto recorrido (HU-004, CA1); las rayitas, los tres pasos de su secuencia */}
-            <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[.7rem] text-muted">
-              <span className="flex items-center gap-1"><span className="grid size-3 place-items-center rounded-[3px] bg-blue text-white"><IconCheck className="size-2" /></span>recorrido</span>
-              <span className="flex items-center gap-1">
-                <span className="flex gap-0.5">{PASOS.map(([k]) => <i key={k} className="h-1 w-2.5 rounded-full bg-blue" />)}</span>
-                lección · tarjetas · cuestionario
-              </span>
-            </p>
           </div>
           <ul className="grid gap-1">
             {estado.conceptos.map((c) => {
@@ -86,13 +78,11 @@ export default function Aprender() {
                 <li key={c.nombre}>
                   <button type="button" onClick={() => irAConcepto(c.nombre)} aria-current={elegido ? 'step' : undefined}
                     className={`flex w-full cursor-pointer items-start gap-2.5 rounded-lg px-2 py-2 text-left text-sm ${elegido ? 'bg-[color-mix(in_srgb,var(--blue)_9%,transparent)]' : 'hover:bg-elev'}`}>
-                    <span className={`mt-0.5 grid size-[18px] flex-none place-items-center rounded-[5px] border-[1.5px] ${c.recorrido ? 'border-blue bg-blue text-white' : 'border-rule'}`}>
-                      {c.recorrido && <IconCheck className="size-3" />}
-                    </span>
                     <span className="grid gap-1">
                       <span className={`first-letter:uppercase ${elegido ? 'font-medium text-blue' : ''}`}>{c.nombre}</span>
-                      <span className="flex gap-1" aria-label={`Lección, tarjetas y cuestionario: ${PASOS.filter(([k]) => c.pasos[k]).length} de 3`}>
+                      <span className="flex items-center gap-1" aria-label={`Lección, tarjetas y cuestionario: ${PASOS.filter(([k]) => c.pasos[k]).length} de 3`}>
                         {PASOS.map(([k, label]) => <i key={k} title={label} className={`h-1 w-5 rounded-full ${c.pasos[k] ? 'bg-blue' : 'bg-rule/60'}`} />)}
+                        {c.recorrido && <span className="ml-1 text-[.7rem] text-blue">recorrido</span>}
                       </span>
                     </span>
                   </button>

@@ -60,6 +60,23 @@ def test_tamano_por_defecto_es_el_de_la_entrega_3():
     assert all(len(f) <= 400 for f in frags)
 
 
+def test_fragmento_que_supera_los_tokens_se_subdivide(client):
+    """400 caracteres de código tienen muchos más tokens que 400 de prosa: ninguno puede pasar el límite."""
+    codigo = "def f(n):\n    return 1 if n <= 1 else n * f(n - 1)  # (a[i] + b[j]) / {k: v}\n" * 20
+    prosa = "El caso base corta la recursión y evita llamadas infinitas. " * 20
+    frags = rag.fragmentar(codigo)
+    assert all(rag.contar_tokens(f) <= rag.R["max_tokens"] for f in frags)
+    assert any(len(f) < 200 for f in frags)  # algún fragmento de código se subdividió
+    assert rag.fragmentar(prosa) == [f.strip() for f in rag.RecursiveCharacterTextSplitter(  # la prosa no cambia
+        chunk_size=400, chunk_overlap=60, keep_separator="end", separators=rag.SEPARADORES).split_text(prosa)]
+    tema = id_tema("Recursividad")
+    n = rag.indexar([rag.Seccion(codigo, "pág. 4")], id_origen=9, id_tema=tema, fuente=rag.ACADEMICA,
+                    nombre_archivo="Código", prefijo="cod9")
+    metas = rag.almacen().get(where={"id_origen": 9})["metadatas"]
+    assert len(metas) == n and {m["pagina_o_seccion"] for m in metas} == {"pág. 4"}  # conservan el origen
+    assert sorted(m["orden"] for m in metas) == list(range(n))  # posiciones consecutivas
+
+
 def test_las_oraciones_cortadas_no_empiezan_con_punto():
     frags = rag.fragmentar("El caso base corta la recursión y evita llamadas infinitas. " * 30)
     assert all(not f.startswith(".") for f in frags) and all(f.endswith(".") for f in frags)
@@ -419,6 +436,43 @@ def test_material_insuficiente(client):
     assert rag.recuperar(tema, "qué es el caso base de la recursión", [])["suficiente"] is True
 
 
+def test_eliminar_material_propio(client):
+    """El estudiante elimina su material: se borran el archivo, sus fragmentos y el registro, y libera la cuota."""
+    from pathlib import Path
+    client.post("/api/auth/dev")
+    plan = crear_plan(client)
+    m = subir(client, plan, "apunte.docx", docx("El caso base corta la recursión en mi apunte de clase.")).json()
+    with Session(engine) as db:
+        mat = db.get(MaterialEstudio, m["id"])
+        ruta, estado = Path(mat.ruta_archivo), mat.estado
+    assert estado == "procesado" and ruta.exists()
+    assert rag.almacen().get(where={"$and": [{"fuente": rag.PROPIA}, {"id_origen": m["id"]}]})["ids"]
+    assert client.delete(f"/api/materials/{m['id']}").status_code == 204
+    assert not ruta.exists() and client.get("/api/materials").json() == []
+    assert not rag.almacen().get(where={"$and": [{"fuente": rag.PROPIA}, {"id_origen": m["id"]}]})["ids"]
+    assert client.get("/api/materials/limits").json()["used_bytes"] == 0
+    assert client.delete(f"/api/materials/{m['id']}").status_code == 404
+
+
+def test_no_se_elimina_material_ajeno_ni_en_proceso(client):
+    client.post("/api/auth/dev")
+    plan = crear_plan(client)
+    m = subir(client, plan, "apunte.docx", docx("Material de la primera estudiante.")).json()
+    from app.models import Estudiante
+    from app.security import create_token
+    with Session(engine) as db:
+        ana = Estudiante(id_google="otra-persona-2", nombre="Ana", correo_electronico="ana2@example.com")
+        db.add(ana); db.commit(); db.refresh(ana)
+    client.cookies.clear()
+    client.cookies.set("session", create_token(ana.id_estudiante))
+    assert client.delete(f"/api/materials/{m['id']}").status_code == 404  # no es suyo
+    with Session(engine) as db:
+        mat = db.get(MaterialEstudio, m["id"]); mat.estado = "pendiente"; db.add(mat); db.commit()
+    client.cookies.clear()
+    client.post("/api/auth/dev")
+    assert client.delete(f"/api/materials/{m['id']}").status_code == 409  # todavía se está procesando
+
+
 def test_busqueda_no_mezcla_temas_ni_material_ajeno(client):
     # Un estudiante sube material de Recursividad.
     client.post("/api/auth/dev")
@@ -433,6 +487,7 @@ def test_busqueda_no_mezcla_temas_ni_material_ajeno(client):
     with Session(engine) as db:
         ana = Estudiante(id_google="otra-persona", nombre="Ana", correo_electronico="ana@example.com")
         db.add(ana); db.commit(); db.refresh(ana)
+    client.cookies.clear()  # si no, la cookie anterior sigue en el cliente de prueba y se envía primero
     client.cookies.set("session", create_token(ana.id_estudiante))
     assert client.get("/api/auth/me").json()["id"] != otro
     plan_ana = crear_plan(client)

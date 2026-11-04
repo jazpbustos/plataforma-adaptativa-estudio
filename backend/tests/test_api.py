@@ -129,6 +129,30 @@ def test_flujo_completo_demo(client):
     assert client.get("/api/auth/me").status_code == 401
 
 
+def test_cerrar_sesion_revoca_una_copia_del_token(client):
+    """Seguridad: borrar la cookie no alcanza; una copia robada del token tiene que dejar de valer."""
+    client.post("/api/auth/dev")
+    robado = client.cookies.get("session")
+    client.post("/api/auth/logout")
+    client.cookies.set("session", robado)
+    assert client.get("/api/auth/me").status_code == 401
+    client.cookies.clear()
+    client.post("/api/auth/dev")  # volver a ingresar sí funciona
+    assert client.get("/api/auth/me").status_code == 200
+
+
+def test_responsable_tecnico_habilita_quita_y_revoca(client):
+    from app import admin
+    client.post("/api/auth/dev")
+    assert "administrador" in admin.main(["habilitar", "demo@plataforma.local"])
+    assert client.get("/api/auth/me").json()["role"] == "administrador"  # vale desde la siguiente solicitud
+    admin.main(["quitar", "demo@plataforma.local"])
+    assert client.get("/api/auth/me").json()["role"] == "estudiante"
+    admin.main(["revocar", "demo@plataforma.local"])
+    assert client.get("/api/auth/me").status_code == 401
+    assert "ingresar primero" in admin.main(["habilitar", "nadie@x.com"])
+
+
 def test_validaciones(client):
     client.post("/api/auth/dev")
     prev = lambda **kw: client.post("/api/plans/preview", json=plan_body(**kw))

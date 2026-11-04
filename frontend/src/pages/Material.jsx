@@ -25,6 +25,7 @@ export default function Material() {
   const [items, setItems] = useState(null)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
+  const [confirmar, setConfirmar] = useState(null) // id del archivo que se está por eliminar
   const input = useRef(null)
 
   const mine = items?.filter((f) => !plan || f.plan_id === plan.id) // solo el material del tema elegido
@@ -52,6 +53,13 @@ export default function Material() {
       await api(`/plans/${plan.id}/materials`, { method: 'POST', form: fd }).then(() => cargados++).catch((e) => errors.push(`${f.name}: ${e.message}`))
     }
     setMsg(errors.join(' · ')); setBusy(false); load(); reload()
+  }
+
+  // Eliminar (Tabla de niveles de acceso): se pide confirmar en la misma tarjeta, sin ventanas emergentes.
+  const eliminar = async (f) => {
+    setMsg('')
+    await api(`/materials/${f.id}`, { method: 'DELETE' }).catch((e) => setMsg(`${f.filename}: ${e.message}`))
+    setConfirmar(null); load(); reload()
   }
 
   return (
@@ -83,6 +91,17 @@ export default function Material() {
                 <p className="truncate text-[1.05rem] font-medium tracking-[-.01em]">{f.filename}</p>
                 <p className="text-xs text-muted">{kb(f.size_bytes)} · Añadido el {shortDate(new Date(f.uploaded_at))}</p>
               </div>
+              {confirmar === f.id ? (
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                  <span>¿Eliminar este archivo? Deja de usarse en tus sesiones.</span>
+                  <button type="button" className="btn btn-primary btn-sm" onClick={() => eliminar(f)}>Eliminar</button>
+                  <button type="button" className="btn btn-soft btn-sm" onClick={() => setConfirmar(null)}>Cancelar</button>
+                </div>
+              ) : (
+                <button type="button" className="justify-self-start text-xs text-muted underline-offset-2 hover:text-red hover:underline disabled:opacity-50"
+                  disabled={f.status === 'pendiente'} title={f.status === 'pendiente' ? 'Esperá a que termine de procesarse' : undefined}
+                  onClick={() => setConfirmar(f.id)}>Eliminar</button>
+              )}
             </li>
           })}
         </ul>

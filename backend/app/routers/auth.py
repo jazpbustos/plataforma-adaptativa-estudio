@@ -1,11 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
 from sqlmodel import Session, select
 
 from ..config import settings
 from ..db import get_session
 from ..models import Estudiante, ObjetivoEstudio
 from ..schemas import GoogleLoginIn, PreferenciasIn, UserOut
-from ..security import clear_session_cookie, current_user, set_session_cookie, verify_google_access_token
+from ..security import (COOKIE_NAME, clear_session_cookie, current_user, revocar_sesiones, set_session_cookie,
+                        usuario_del_token, verify_google_access_token)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -71,5 +72,10 @@ def actualizar_preferencias(body: PreferenciasIn, user: Estudiante = Depends(cur
 
 
 @router.post("/logout", status_code=204)
-def logout(response: Response):
+def logout(response: Response, session_token: str | None = Cookie(default=None, alias=COOKIE_NAME),
+           db: Session = Depends(get_session)):
+    """Cierra la sesión en todos los dispositivos: además de borrar la cookie, revoca los tokens emitidos hasta
+    ahora, de modo que una copia robada del token deja de valer aunque no haya vencido (Seguridad)."""
+    if user := usuario_del_token(session_token, db):
+        revocar_sesiones(db, user)
     clear_session_cookie(response)
