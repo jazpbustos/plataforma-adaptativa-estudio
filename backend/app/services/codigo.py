@@ -20,7 +20,7 @@ import re
 from dataclasses import dataclass, field
 
 MARCA = "@@CASO|"
-TIPOS = {"int", "bool", "str", "int[]"}
+TIPOS = {"int", "bool", "str", "int[]"}  # tipos admitidos en las firmas del banco (los valida test_banco)
 JAVA = {"int": "int", "bool": "boolean", "str": "String", "int[]": "int[]"}
 VACIO_JAVA = {"int": "0", "bool": "false", "str": '""', "int[]": "new int[0]"}
 

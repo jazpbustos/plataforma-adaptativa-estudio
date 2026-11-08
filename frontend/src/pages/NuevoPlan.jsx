@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Avatar } from '../components/AppHeader.jsx'
+import Avatar from '../components/Avatar.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import PaperTopbar from '../components/PaperTopbar.jsx'
-import { Floaty, Kicker, GradeDoodle, CalendarDoodle, FlagDoodle, FootDoodle } from '../components/Doodles.jsx'
+import { Floaty, Kicker, GradeDoodle, CalendarDoodle } from '../components/Doodles.jsx'
 import { IconCheck, IconChevron, IconFile, IconUpload } from '../components/Icons.jsx'
 import Synapse from '../components/Synapse.jsx'
 import { api } from '../lib/api.js'
-import { DAYS_MAX, DAYS_MIN, LANGUAGES, LEVELS, MATERIA, MODULES, TOPICS, addDays, fullDate, kb, longDate, maxGradeFor, minDays, parseDay, requiredMastery, shortDate, toISO } from '../lib/format.js'
+import { DAYS_MAX, DAYS_MIN, LANGUAGES, LEVELS, MATERIA, MODULES, TOPICS, addDays, kb, longDate, maxGradeFor, minDays, parseDay, requiredMastery, shortDate, toISO } from '../lib/format.js'
 import { ACCEPT, MAX_FILES, MAX_MB } from './Material.jsx'
 
 /*
@@ -19,8 +19,7 @@ import { ACCEPT, MAX_FILES, MAX_MB } from './Material.jsx'
 // Garabatos a los costados de cada paso (solo en pantallas anchas), como en el ingreso.
 const DOODLES = {
   objetivo: [{ D: GradeDoodle, label: 'tu nota', rot: -5 }, { D: CalendarDoodle, label: 'tu fecha', rot: 6 }],
-  material: [], // este paso es más ancho: los garabatos tapaban el contenido
-  plan: [{ D: FootDoodle, label: 'paso a paso', rot: -4 }, { D: FlagDoodle, label: 'tu meta', rot: 6 }],
+  // Material y la revisión del plan son más anchos: sin garabatos, que tapaban el contenido.
 }
 const STEPS = [
   { key: 'objetivo', kicker: 'antes de empezar', title: '¿Qué vas a estudiar?', sub: 'Tema, días, nivel y nota objetivo.' },
@@ -69,18 +68,18 @@ export default function NuevoPlan() {
       <div className="nb-page nb-lined relative flex min-h-dvh flex-col">
         <PaperTopbar logoTo="/app" right={<><span className="text-sm text-muted">Paso {step + 1} de {STEPS.length}</span><Avatar /></>} />
 
-        <main className="relative z-[2] mx-auto grid w-full max-w-[1120px] flex-1 content-start gap-8 px-4 pt-10 pb-10 sm:px-10 md:pt-14">
-          {DOODLES[s.key].map(({ D, label, rot }, i) => (
+        <main className="relative z-[2] mx-auto grid w-full max-w-[1120px] flex-1 content-start gap-4 px-4 pt-3 pb-3 sm:px-10 md:pt-4">
+          {DOODLES[s.key]?.map(({ D, label, rot }, i) => (
             <Floaty key={`${s.key}-${label}`} rot={rot} delay={i * .9} label={label}
               style={i === 0 ? { left: '2%', top: '30%' } : { right: '2%', top: '52%' }}><D /></Floaty>
           ))}
           <div className="flex justify-center gap-1.5" aria-hidden="true">
             {STEPS.map((x, i) => <i key={x.key} className={`size-1.5 rounded-full transition ${i <= step ? 'bg-violet' : 'bg-rule'}`} />)}
           </div>
-          <header key={s.key} className="rise grid justify-items-center gap-4 text-center">
+          <header key={s.key} className="rise grid justify-items-center gap-2 text-center">
             <Kicker>{s.kicker}</Kicker>
-            <h1 ref={headingRef} tabIndex={-1} className="display text-[clamp(2rem,4vw,2.8rem)] outline-none">{s.title}</h1>
-            <p className="max-w-[54ch] text-balance text-muted">{s.sub}</p>
+            <h1 ref={headingRef} tabIndex={-1} className="display text-[clamp(1.8rem,3.4vw,2.5rem)] outline-none">{s.title}</h1>
+            <p className="max-w-[54ch] text-balance text-sm text-muted">{s.sub}</p>
           </header>
 
           <div key={`b-${s.key}`} className="rise">
@@ -89,7 +88,7 @@ export default function NuevoPlan() {
             {s.key === 'plan' && <StepPlan form={form} goTo={setStep} />}
           </div>
         </main>
-        <footer className="relative z-[2] mx-auto flex w-full max-w-[1120px] justify-end px-4 pb-6 sm:px-10">
+        <footer className="relative z-[2] mx-auto flex w-full max-w-[1120px] justify-end px-4 pb-3 sm:px-10">
           <Link to="/app" className="text-sm text-muted hover:text-fg">Salir</Link>
         </footer>
       </div>
@@ -190,8 +189,8 @@ function NotaDial({ value, onChange }) {
   const R = 52, C = 2 * Math.PI * R
   const mastery = value ? requiredMastery(value) : 0
   return (
-    <div className="grid justify-items-center gap-4 pt-1">
-      <div className="relative size-40" aria-hidden="true">
+    <div className="grid justify-items-center gap-3 pt-1">
+      <div className="relative size-28" aria-hidden="true">
         <svg viewBox="0 0 120 120" className="size-full -rotate-90">
           <circle cx="60" cy="60" r={R} fill="none" stroke="var(--rule)" strokeWidth="9" opacity=".55" />
           <circle cx="60" cy="60" r={R} fill="none" stroke="var(--violet)" strokeWidth="9" strokeLinecap="round"
@@ -199,7 +198,7 @@ function NotaDial({ value, onChange }) {
             style={{ transition: 'stroke-dashoffset .5s cubic-bezier(.3,.7,.2,1)' }} />
         </svg>
         <div className="absolute inset-0 grid place-content-center justify-items-center">
-          <span className="text-[2.6rem] leading-none font-medium tracking-[-.04em] tabular-nums">{mastery ? `${mastery}` : '–'}<span className="text-lg text-muted">{mastery ? ' %' : ''}</span></span>
+          <span className="text-[2.1rem] leading-none font-medium tracking-[-.04em] tabular-nums">{mastery ? `${mastery}` : '–'}<span className="text-lg text-muted">{mastery ? ' %' : ''}</span></span>
           <span className="mt-1 text-xs text-muted">dominio requerido</span>
         </div>
       </div>
@@ -223,14 +222,14 @@ function Fila({ id, label, value, open, setOpen, children }) {
   return (
     <div>
       <button type="button" aria-expanded={abierto} aria-controls={`p-${id}`} onClick={() => setOpen(abierto ? '' : id)}
-        className="flex w-full cursor-pointer items-center gap-3 px-5 py-4 text-left transition hover:bg-[color-mix(in_srgb,var(--fg)_4%,transparent)]">
+        className="flex w-full cursor-pointer items-center gap-3 px-5 py-3 text-left transition hover:bg-[color-mix(in_srgb,var(--fg)_4%,transparent)]">
         <span className="flex-1 text-sm">{label}</span>
         <span className={`truncate text-sm ${value ? 'text-muted' : 'accent'}`}>{value || 'Elegir'}</span>
         <IconChevron className={`size-4 flex-none text-muted transition ${abierto ? 'rotate-180' : ''}`} />
       </button>
       <div id={`p-${id}`} className={`grid transition-all duration-300 ${abierto ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
         <div className="overflow-hidden">
-          <div className="grid gap-3 px-5 pb-5">{children}</div>
+          <div className="grid gap-3 px-5 pb-4">{children}</div>
         </div>
       </div>
     </div>
@@ -385,7 +384,7 @@ function StepPlan({ form, goTo }) {
   }
   const rows = [
     ['Tema', form.topic, 0],
-    ['Días disponibles', `${form.days === 1 ? '1 día' : `${form.days} días`} · hasta el ${fullDate(parseDay(form.end_date))}`, 0],
+    ['Días', `${form.days === 1 ? '1 día' : `${form.days} días`} · hasta el ${shortDate(parseDay(form.end_date))}`, 0],
     ['Nivel inicial', LEVELS[form.level].label, 0],
     ['Nota objetivo', `${form.target_grade} · ${preview.required_mastery} % de dominio requerido`, 0],
     ['Lenguaje', LANGUAGES[form.language], 1],
@@ -393,7 +392,7 @@ function StepPlan({ form, goTo }) {
   ]
 
   return (
-    <div className="mx-auto grid w-full max-w-[680px] gap-5">
+    <div className="mx-auto grid w-full max-w-[680px] gap-5 lg:max-w-[920px] lg:grid-cols-2 lg:items-start">
       <section className="card grid gap-5 p-6">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <p className="text-[2.4rem] leading-none font-medium tracking-[-.04em] tabular-nums">{preview.total_sessions}<span className="ml-2 text-base font-normal tracking-normal text-muted">{preview.total_sessions === 1 ? 'día' : 'días'}</span></p>
@@ -420,15 +419,15 @@ function StepPlan({ form, goTo }) {
 
       <dl className="card divide-y divide-line/70">
         {rows.map(([k, v, st]) => (
-          <div key={k} className="grid grid-cols-[130px_minmax(0,1fr)_auto] items-baseline gap-4 px-5 py-3 text-sm">
+          <div key={k} className="grid grid-cols-[112px_minmax(0,1fr)_auto] items-baseline gap-3 px-5 py-3 text-sm">
             <dt className="text-muted">{k}</dt><dd className="min-w-0 truncate">{v}</dd>
             <button type="button" className="cursor-pointer text-xs text-muted hover:text-fg" onClick={() => goTo(st)}>Editar</button>
           </div>
         ))}
       </dl>
 
-      {error && <p role="alert" className="text-sm text-red">{error}</p>}
-      <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
+      {error && <p role="alert" className="text-sm text-red lg:col-span-2">{error}</p>}
+      <div className="flex flex-wrap items-center justify-between gap-4 pt-1 lg:col-span-2">
         <button type="button" className="btn btn-ghost" onClick={() => goTo(1)}>← Atrás</button>
         <button type="button" className="btn btn-primary" onClick={create}>Crear mi plan <span className="arrow">→</span></button>
       </div>

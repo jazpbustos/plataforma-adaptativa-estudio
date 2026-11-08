@@ -5,7 +5,7 @@ import PageHeader from '../components/PageHeader.jsx'
 import Synapse from '../components/Synapse.jsx'
 import TopicSwitch from '../components/TopicSwitch.jsx'
 import { api } from '../lib/api.js'
-import { fullDate, kb, parseDay, shortDate } from '../lib/format.js'
+import { fullDate, kb, parseDay, instante, shortDate } from '../lib/format.js'
 
 // Carga del material (HU-003 y Seguridad): el backend vuelve a validar todo, también el contenido real del archivo.
 export const ACCEPT = ['.pdf', '.docx', '.pptx']
@@ -27,6 +27,15 @@ export default function Material() {
   const [msg, setMsg] = useState('')
   const [confirmar, setConfirmar] = useState(null) // id del archivo que se está por eliminar
   const input = useRef(null)
+  // Contradicciones con las fuentes académicas (HU-003, CA4): se detectan al armar la lección de cada concepto en
+  // Aprender; acá se marca el archivo que las tiene y en qué concepto, para que el estudiante sepa que debe revisarlo.
+  const [contradicciones, setContradicciones] = useState([])
+  useEffect(() => {
+    setContradicciones([])
+    if (plan) api(`/plans/${plan.id}/aprender`).then((e) => setContradicciones(e.contradicciones ?? [])).catch(() => {})
+  }, [plan?.id])
+  const conceptosEnConflicto = (f) => [...new Set(contradicciones
+    .filter((c) => c.propio?.etiqueta === f.filename || c.propio?.etiqueta?.startsWith(`${f.filename} ·`)).map((c) => c.concepto))]
 
   const mine = items?.filter((f) => !plan || f.plan_id === plan.id) // solo el material del tema elegido
   const load = () => api('/materials').then(setItems).catch((e) => setMsg(e.message))
@@ -82,15 +91,20 @@ export default function Material() {
         <ul className="grid gap-3 sm:grid-cols-2">
           {mine.map((f) => {
             const [label, color, hint] = ESTADO[f.status] ?? ESTADO.pendiente
-            return <li key={f.id} className="card grid gap-3 p-5">
+            return <li key={f.id} className="card grid content-start gap-3 p-5">
               <div className="flex items-center justify-between">
                 <IconFile className="size-5 text-violet" />
                 <span className="pill" style={{ '--c': color }} title={hint}>{label}</span>
               </div>
               <div className="min-w-0">
                 <p className="truncate text-[1.05rem] font-medium tracking-[-.01em]">{f.filename}</p>
-                <p className="text-xs text-muted">{kb(f.size_bytes)} · Añadido el {shortDate(new Date(f.uploaded_at))}</p>
+                <p className="text-xs text-muted">{kb(f.size_bytes)} · Añadido el {shortDate(instante(f.uploaded_at))}</p>
               </div>
+              {conceptosEnConflicto(f).length > 0 && (
+                <p className="rounded-lg bg-[color-mix(in_srgb,var(--orange)_8%,transparent)] px-3 py-2 text-xs text-orange">
+                  Contradice a una fuente académica en: {conceptosEnConflicto(f).join(', ')}. <Link to="/app/aprender" className="underline underline-offset-2">Ver en Aprender</Link>
+                </p>
+              )}
               {confirmar === f.id ? (
                 <div className="flex flex-wrap items-center gap-2 text-sm">
                   <span>¿Eliminar este archivo? Deja de usarse en tus sesiones.</span>

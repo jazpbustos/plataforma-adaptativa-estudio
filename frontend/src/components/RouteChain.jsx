@@ -28,7 +28,7 @@ export default function RouteChain({ byModule, current }) {
           const m = MODULES[k], s = byModule?.[k] ?? { done: 0, total: 0 }
           const state = s.total && s.done === s.total ? 'done' : i === idx ? 'now' : i < idx ? 'done' : 'locked'
           const status = state === 'done' ? 'Completo'
-            : state === 'now' ? `${s.done} de ${s.total} · Continuar →`
+            : state === 'now' ? `${s.done} de ${s.total} ${s.total === 1 ? 'día' : 'días'} · Continuar →`
             : 'Bloqueado'
           return (
             <li key={k} className="card grid content-start gap-2 p-5" style={{ '--c': m.color }}>

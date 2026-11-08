@@ -1,5 +1,5 @@
 // Cliente mínimo para la API. `credentials: 'include'` manda la cookie de sesión.
-export class ApiError extends Error {
+class ApiError extends Error {
   constructor(status, message) { super(message); this.status = status }
 }
 

@@ -1,3 +1,5 @@
 # Los scripts de arranque corren en Linux (Docker): siempre con finales de línea LF.
 *.sh text eol=lf
 Dockerfile text eol=lf
+# El arranque en Windows: finales de linea CRLF.
+*.bat text eol=crlf

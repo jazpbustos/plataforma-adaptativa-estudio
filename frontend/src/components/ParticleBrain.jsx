@@ -9,7 +9,7 @@ import { useEffect, useRef } from 'react'
   - Después sigue girando; el tronco se deshace en polvo que cae; de las fuentes llegan hilos de partículas.
   Respeta prefers-reduced-motion: dibuja un cuadro fijo.
 */
-export const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v))
+const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v))
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a)); return t * t * (3 - 2 * t) }
 export const mulberry = (a) => () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296 }
 
@@ -47,7 +47,7 @@ let cache = null
 export function build() {
   if (cache) return cache
   let part = 0
-  const r = mulberry(3), PT = [], X = [], Y = [], Z = [], NX = [], NY = [], NZ = [], G = [], F = [], Rn = [], Fall = [], Hue = []
+  const r = mulberry(3), PT = [], X = [], Y = [], Z = [], NX = [], NY = [], NZ = [], G = [], Rn = [], Fall = [], Hue = []
   const push = (p, n, g, fall) => { X.push(p[0]); Y.push(p[1]); Z.push(p[2]); const l = Math.hypot(n[0], n[1], n[2]) || 1; NX.push(n[0] / l); NY.push(n[1] / l); NZ.push(n[2] / l); G.push(g); Rn.push(r()); Fall.push(fall); Hue.push(r()); PT.push(part) }
   const dust = (y) => (r() < clamp((-y - .42) / .75) * .75 ? 1 : 0)
   // cerebro: puntos de Fibonacci sobre la esfera

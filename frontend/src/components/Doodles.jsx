@@ -3,7 +3,7 @@
   hoja, código y chat dibujados a mano + la etiqueta manuscrita de sección (Kicker).
 */
 const INK = 'var(--ink-hand, #3a2a7a)'
-export const Doodle = ({ children, size = 'clamp(64px, 5.8vw, 96px)' }) => (
+const Doodle = ({ children, size = 'clamp(64px, 5.8vw, 96px)' }) => (
   <svg viewBox="0 0 100 100" fill="none" stroke={INK} strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" className="nb-doodle" style={{ width: size, height: size }} aria-hidden="true">{children}</svg>
 )
 export const DocDoodle = (p) => (

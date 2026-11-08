@@ -7,9 +7,9 @@ import NuevoPlan from './pages/NuevoPlan.jsx'
 import Home from './pages/Home.jsx'
 import Material from './pages/Material.jsx'
 import Progreso from './pages/Progreso.jsx'
-import Modulo from './pages/Modulo.jsx'
 import Aprender from './pages/Aprender.jsx'
 import Practicar from './pages/Practicar.jsx'
+import Consolidar from './pages/Consolidar.jsx'
 import Configuracion from './pages/Configuracion.jsx'
 
 export default function App() {
@@ -24,7 +24,7 @@ export default function App() {
           <Route path="material" element={<Material />} />
           <Route path="aprender" element={<Aprender />} />
           <Route path="practicar" element={<Practicar />} />
-          <Route path="consolidar" element={<Modulo module="consolidar" />} />
+          <Route path="consolidar" element={<Consolidar />} />
           <Route path="progreso" element={<Progreso />} />
           <Route path="configuracion" element={<Configuracion />} />
         </Route>

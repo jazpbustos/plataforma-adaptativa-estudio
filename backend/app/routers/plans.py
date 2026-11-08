@@ -18,8 +18,9 @@ from ..models import Estudiante, MaterialEstudio, NivelDominio, ObjetivoEstudio,
 from ..schemas import PlanIn, PreviewOut, SessionOut
 from ..security import current_user
 from ..services import rag
-from ..services.planner import (MODULES, DiasInsuficientes, construir_dias, dia_completo, dias_minimos, modulo_del_dia,
+from ..services.planner import (MODULES, DiasInsuficientes, construir_dias, dias_minimos, estado_del_dia, modulo_del_dia,
                                 plan_a_json, plan_desde_json, plan_inicial, required_mastery, vigente)
+from .practicar import _objetivo, revisar_plan
 
 router = APIRouter(tags=["planes"])
 log = logging.getLogger(__name__)
@@ -29,13 +30,6 @@ _cola_procesamiento = threading.Semaphore(1)
 M = P["material"]
 MB = 1024 * 1024
 FORMATOS = set(M["formatos"])
-
-
-def _objetivo_o_404(db: Session, id_objetivo: int, est: Estudiante) -> ObjetivoEstudio:
-    obj = db.get(ObjetivoEstudio, id_objetivo)
-    if not obj or obj.id_estudiante != est.id_estudiante:  # nunca revelar objetivos ajenos
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Plan no encontrado")
-    return obj
 
 
 def _tema_o_422(db: Session, nombre: str) -> Tema:
@@ -48,7 +42,7 @@ def _tema_o_422(db: Session, nombre: str) -> Tema:
 def _sesiones(dias: list[dict]) -> list[SessionOut]:
     return [SessionOut(position=i, day=d["fecha"], module=modulo_del_dia(d),
                        activities=[{"module": a["modulo"], "type": a["tipo"], "status": a["estado"]} for a in d["actividades"]],
-                       status="hecha" if dia_completo(d) else "pendiente")
+                       status=estado_del_dia(d))
             for i, d in enumerate(dias, 1)]
 
 
@@ -123,7 +117,7 @@ async def upload_material(
     extensión), lo que supere 25 MB, el archivo número 21 de un tema y lo que exceda la cuota de 200 MB
     de material propio del estudiante. El tema sigue funcionando con las fuentes que ya tenía.
     """
-    obj = _objetivo_o_404(db, plan_id, est)
+    obj = _objetivo(db, plan_id, est)
     ext = Path(file.filename or "").suffix.lower().lstrip(".")
     if ext not in FORMATOS:
         _rechazar(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
@@ -188,8 +182,8 @@ def _materiales_propios(db: Session, est: Estudiante, obj: ObjetivoEstudio) -> l
 def search_material(plan_id: int, q: str, est: Estudiante = Depends(current_user), db: Session = Depends(get_session)):
     """Fragmentos del tema más parecidos a la consulta (fuentes académicas y material propio), e indicación
     de si alcanzan para generar contenido (HU-003, CA5)."""
-    obj = _objetivo_o_404(db, plan_id, est)
-    return rag.recuperar(obj.id_tema, q, _materiales_propios(db, est, obj))
+    obj = _objetivo(db, plan_id, est)
+    return rag.recuperar(obj.id_tema, q, _materiales_propios(db, est, obj), obj.lenguaje)
 
 
 @router.get("/materials")
@@ -230,15 +224,6 @@ def delete_material(id_material: int, est: Estudiante = Depends(current_user), d
     db.commit()
 
 
-@router.get("/materials/limits")
-def material_limits(est: Estudiante = Depends(current_user), db: Session = Depends(get_session)):
-    """Límites de carga y cuánto de la cuota ya usó el estudiante (los muestra Mi material)."""
-    usado = db.exec(select(func.coalesce(func.sum(MaterialEstudio.tamano_bytes), 0)).join(ObjetivoEstudio)
-                    .where(ObjetivoEstudio.id_estudiante == est.id_estudiante)).one()
-    return {"formats": M["formatos"], "max_mb": M["max_mb_por_archivo"], "max_files_per_topic": M["max_archivos_por_tema"],
-            "quota_mb": M["cuota_mb_por_estudiante"], "used_bytes": usado}
-
-
 # ---------------- Panel ----------------
 
 def _dominio(db: Session, id_objetivo: int) -> float:
@@ -262,6 +247,10 @@ def dashboard(est: Estudiante = Depends(current_user), db: Session = Depends(get
         .where(ObjetivoEstudio.id_estudiante == est.id_estudiante).order_by(ObjetivoEstudio.fecha_creacion.desc())
     ).all()
 
+    # Antes de mostrar, cada plan con días vencidos y actividades pendientes se reajusta (HU-010, CA3).
+    if any([revisar_plan(db, obj) for obj, _ in filas]):
+        db.commit()
+
     items, planificadas = [], []
     for obj, tema in filas:
         versiones = plan_desde_json(obj.plan_estudio)
@@ -272,6 +261,7 @@ def dashboard(est: Estudiante = Depends(current_user), db: Session = Depends(get
         fin = inicio + timedelta(days=obj.dias_disponibles - 1)
         hechas = sum(1 for s in plan if s.status == "hecha")
         nxt = next((s for s in plan if s.status == "pendiente"), None)
+        hoy = next((s for s in plan if s.day == today), None)  # el plan de hoy (Pantalla 5)
         n_material = db.exec(select(func.count()).select_from(MaterialEstudio).where(MaterialEstudio.id_objetivo == obj.id_objetivo)).one()
         items.append({
             "id": obj.id_objetivo, "topic": tema.nombre, "area": tema.area,
@@ -280,12 +270,16 @@ def dashboard(est: Estudiante = Depends(current_user), db: Session = Depends(get
             "required_mastery": required_mastery(obj.nota_objetivo), "language": obj.lenguaje,
             "mastery": _dominio(db, obj.id_objetivo), "points": _puntos(db, obj.id_objetivo),
             "plan_version": version["numero"], "plan_readjusted": version["motivo"] != "inicial",
+            "plan_reason": version["motivo"],
             "sessions_total": len(plan), "sessions_done": hechas,
             "by_module": {m: {"total": sum(1 for s in plan if s.module == m),
                               "done": sum(1 for s in plan if s.module == m and s.status == "hecha")} for m in MODULES},
             "next_session": {"position": nxt.position, "day": nxt.day, "module": nxt.module,
                              "activities": [a.model_dump() for a in nxt.activities]} if nxt else None,
             "materials": n_material,
+            "today_session": {"position": hoy.position, "module": hoy.module, "status": hoy.status,
+                              "activities": [a.model_dump() for a in hoy.activities]} if hoy else None,
+            "plan_generated": version.get("fecha_generacion"),
         })
 
     # Semana actual (lunes a domingo) de todos los temas: qué días tienen actividad planificada o hecha.

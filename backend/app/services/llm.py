@@ -42,6 +42,12 @@ def generar(tarea: str, sistema: str, usuario: str, max_tokens: int, espera: flo
     espera: segundos máximos de respuesta. Por defecto, los de las pistas (cortas); el contenido de Aprender,
     más largo, pasa una espera mayor.
     """
+    return generar_con_parada(tarea, sistema, usuario, max_tokens, espera)[0]
+
+
+def generar_con_parada(tarea: str, sistema: str, usuario: str, max_tokens: int,
+                       espera: float | None = None) -> tuple[str, bool]:
+    """Como generar(), y además indica si la respuesta se cortó por llegar a max_tokens."""
     if not configurado():
         raise ModeloNoDisponible("ANTHROPIC_API_KEY no está configurada")
     from langchain_core.messages import HumanMessage, SystemMessage
@@ -54,19 +60,30 @@ def generar(tarea: str, sistema: str, usuario: str, max_tokens: int, espera: flo
     texto = (respuesta.text if isinstance(respuesta.text, str) else respuesta.text()).strip()
     if not texto:
         raise ModeloNoDisponible("respuesta vacía")
-    return texto
+    cortada = (getattr(respuesta, "response_metadata", None) or {}).get("stop_reason") == "max_tokens"
+    if cortada:
+        log.warning("La respuesta del modelo %s se cortó al llegar a %s tokens", modelo, max_tokens)
+    return texto, cortada
+
+
+SOLO_JSON = ("\n\nRespondé únicamente con un objeto JSON válido, sin texto antes ni después y sin bloques ```. "
+             "No razones por escrito antes del JSON: empezá directamente con {.")
 
 
 def generar_json(tarea: str, sistema: str, usuario: str, max_tokens: int, intentos: int = 2, espera: float | None = None):
     """Como generar(), pero la respuesta tiene que ser un JSON. Si no se puede leer, se pide de nuevo una vez.
 
+    Si la respuesta se cortó por llegar al límite de tokens, el segundo pedido tiene el doble de espacio.
+
     Las respuestas en JSON permiten validar lo que devuelve el modelo antes de mostrarlo: que cada cita
     exista, que una pregunta tenga una sola respuesta correcta, que haya cinco preguntas, etc.
     """
     import json
-    sistema = f"{sistema}\n\nRespondé únicamente con un objeto JSON válido, sin texto antes ni después y sin bloques ```."
+    sistema = sistema + SOLO_JSON
     for _ in range(intentos):
-        texto = generar(tarea, sistema, usuario, max_tokens, espera)
+        texto, cortada = generar_con_parada(tarea, sistema, usuario, max_tokens, espera)
+        if cortada:
+            max_tokens *= 2  # si se pide de nuevo, con el doble de espacio: así una respuesta larga no se corta otra vez
         inicio, fin = texto.find("{"), texto.rfind("}")
         if inicio != -1 and fin > inicio:
             try:

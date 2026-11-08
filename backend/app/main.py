@@ -11,7 +11,7 @@ from sqlmodel import Session, select
 from .config import settings
 from .db import engine, init_db
 from .models import MaterialEstudio
-from .routers import aprender, auth, plans, practicar
+from .routers import aprender, auth, consolidar, plans, practicar, progreso
 from .services import llm, rag
 
 log = logging.getLogger(__name__)
@@ -60,6 +60,8 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(plans.router, prefix="/api")
 app.include_router(practicar.router, prefix="/api")
 app.include_router(aprender.router, prefix="/api")
+app.include_router(consolidar.router, prefix="/api")
+app.include_router(progreso.router, prefix="/api")
 
 
 @app.get("/api/health")

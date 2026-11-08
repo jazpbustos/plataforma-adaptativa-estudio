@@ -1,8 +1,9 @@
 # Plataforma de estudio · prototipo (TFG)
 
 Prototipo de la *Plataforma Adaptativa de Estudio con Inteligencia Artificial*.
-Sprint 1: inicio de sesión con Google, pantalla de inicio, configuración del plan de estudio y carga del material con RAG,
-alineados con la Entrega 3 (historias de usuario HU-001 a HU-003, DER, diccionario de datos y Seguridad).
+Incluye el núcleo definido en los alcances, alineado con la Entrega 3 (historias de usuario HU-001 a HU-012, DER,
+diccionario de datos y Seguridad): inicio de sesión con Google, configuración del objetivo y plan de estudio, carga del
+material con RAG, los módulos Aprender, Practicar y Consolidar, y Progreso con el nivel de dominio y el reajuste del plan.
 
 Todas las reglas y umbrales del diseño (días, notas, límites de carga, etapas del RAG, modelos, detector de bloqueos,
 puntos y fórmula de dominio) están en **`backend/parametros.toml`**, para poder reproducir las pruebas con los mismos valores.
@@ -14,6 +15,17 @@ plataforma-estudio/
 ```
 
 ## 1. Levantarlo en local
+
+**Con doble clic (Windows):** `iniciar.bat`, en la raíz del proyecto. La primera vez crea el entorno de Python e instala
+las dependencias; después compila el frontend, levanta el backend (que sirve también la página) y abre
+http://localhost:8000. Necesita Python 3.11+, Node y el archivo `backend/.env`. Para cerrarlo, cerrar la ventana.
+
+**Para las pruebas manuales** (con el servidor cerrado, desde `backend/`): `python -m app.pruebas reiniciar` deja la base
+sin estudiantes ni progreso (conserva temas, ejercicios y fuentes) y `python -m app.pruebas pasar-dias 3` simula que
+pasaron días, para probar el reajuste del plan. `python -m app.diagnostico <plan> "<consulta>"` muestra qué fragmentos
+recupera una consulta en un plan.
+
+**Con dos terminales (desarrollo):**
 
 Backend (Python 3.11+):
 
@@ -69,7 +81,6 @@ Documentación interactiva de la API: http://localhost:8000/docs · Tests: `cd b
 | GET | `/api/plans` | Planes del usuario |
 | POST | `/api/plans/{id}/materials` | Sube un apunte: PDF, DOCX o PPTX (validado por contenido) · 25 MB · 20 por tema · cuota de 200 MB |
 | GET | `/api/materials` | Material de los planes activos (con su estado de procesamiento) |
-| GET | `/api/materials/limits` | Límites de carga y cuota usada |
 | GET | `/api/plans/{id}/search?q=` | Fragmentos del tema sobre el umbral e indicación de si alcanzan (RAG) |
 | GET | `/api/dashboard` | Datos de inicio y progreso |
 
@@ -83,7 +94,7 @@ Documentación interactiva de la API: http://localhost:8000/docs · Tests: `cd b
 | `/app` | Inicio: siguiente paso, recorrido y avance |
 | `/app/material` | Mi material |
 | `/app/progreso` | Progreso |
-| `/app/aprender`, `/practicar`, `/consolidar` | Módulos (en construcción) |
+| `/app/aprender`, `/practicar`, `/consolidar` | Módulos Aprender, Practicar y Consolidar |
 | `/app/configuracion` | Cuenta y sesión |
 
 La configuración sigue el flujo definido para la plataforma:
@@ -205,12 +216,27 @@ respuesta correcta y la composición de la evaluación. En la respuesta breve, u
 lo que escribió el estudiante. Con material insuficiente (menos de dos fragmentos sobre el umbral) se avisa, y la respuesta
 desde el conocimiento general del modelo queda marcada como no respaldada.
 
+**Consolidar** (`services/consolidar.py` y `routers/consolidar.py`, HU-008): una charla con Brity en dos fases. Primero,
+para cada concepto esperado, una pregunta disparadora que no nombra el concepto y alterna situaciones concretas y
+preguntas conceptuales, con una exigencia según el nivel inicial; cada respuesta se evalúa en el momento y, si no muestra
+el concepto, Brity repregunta en forma gradual (hasta tres veces) sin decir qué falta. Después, el estudiante explica el
+tema en un párrafo, que se evalúa dos veces de forma independiente contra los conceptos esperados: correcta, incompleta,
+incorrecta o no concluyente si las dos evaluaciones no coinciden. Cada concepto presente tiene que citar un fragmento que
+esté en lo que escribió el estudiante; si no, cuenta como ausente. La charla se guarda en
+`sesion_estudio.detalle_consolidar` y se retoma donde quedó; las repreguntas quedan como dificultades en el historial.
+
+**Progreso** (`routers/progreso.py`, HU-009 a HU-012): dominio frente al requerido por la nota objetivo, plan de hoy,
+estado de cada módulo (al elegir uno, el historial muestra solo lo suyo), dificultades con la ayuda recibida, sesiones y
+puntos. El plan se reajusta según el avance, puede extenderse y, al alcanzar el objetivo, seguir con el nivel siguiente.
+
+Si una respuesta del modelo que tiene que ser JSON se corta por el límite de tokens, se pide de nuevo con el doble de
+espacio (`services/llm.py`).
+
 ## 9. Despliegue
 
 La demo se publica en Railway como un solo servicio (API + frontend compilado). La configuración paso a paso está en [DESPLIEGUE.md](DESPLIEGUE.md).
 
-## 10. Próximos pasos
+## 10. Pruebas automáticas
 
-- Consolidar (evaluación de la explicación con Claude); Aprender y Practicar ya lo usan.
-- Endpoint y pantalla de Consolidar (Aprender y Practicar ya están completos).
-- Registro del dominio y del desbloqueo en la base, y reajuste del plan.
+Desde `backend/`, con el entorno activado: `python -m pytest -q`. Usan un modelo de lenguaje simulado, así que no
+consumen la clave de Anthropic ni necesitan Judge0.

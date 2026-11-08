@@ -12,7 +12,7 @@ Flujo de un ejercicio:
 import json
 import logging
 import random
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -28,7 +28,8 @@ from ..services import practica as reglas
 from ..services.codigo import CORRECTO, clasificar, plantilla, programa
 from ..services.ejecucion import EjecucionNoDisponible, ejecutor
 from ..services import llm, pistas, rag
-from ..services.planner import plan_a_json, plan_desde_json, vigente
+from ..services.planner import (dias_vencidos_con_pendientes, estado_del_dia, plan_a_json, plan_desde_json, reajustar,
+                                required_mastery, vigente)
 from ..services.progreso import BLOQUEADO, estado_modulos, nivel_dominio
 
 log = logging.getLogger(__name__)
@@ -80,8 +81,10 @@ def _resultados(db: Session, obj: ObjetivoEstudio) -> tuple[float | None, dict[i
 def _estado(db: Session, obj: ObjetivoEstudio) -> dict:
     mejor, puntos, explicacion = _resultados(db, obj)
     estados = estado_modulos(mejor, len(puntos), explicacion)
-    if settings.desbloquear_modulos and estados["practicar"]["estado"] == BLOQUEADO:  # solo desarrollo
-        estados["practicar"] = {"estado": "habilitado", "falta": None}
+    if settings.desbloquear_modulos:  # solo desarrollo: permite probar Practicar y Consolidar sin aprobar los anteriores
+        for modulo in ("practicar", "consolidar"):
+            if estados[modulo]["estado"] == BLOQUEADO:
+                estados[modulo] = {"estado": "habilitado", "falta": None}
     return estados
 
 
@@ -185,14 +188,55 @@ def _sesion_practicar(db: Session, obj: ObjetivoEstudio) -> SesionEstudio:
 
 
 def _completar_actividad(obj: ObjetivoEstudio, modulo: str, tipo: str) -> None:
-    """Marca como completada la primera actividad pendiente de ese módulo y tipo en la versión vigente del plan."""
+    """Marca como completada la primera actividad pendiente de ese módulo y tipo en la versión vigente del plan.
+
+    Si no queda ninguna de ese tipo, completa una de refuerzo del mismo módulo. Si la actividad era del día
+    siguiente y el de hoy ya estaba completo, el estudiante se adelantó: el plan se reajusta y las actividades
+    restantes se corren un día (HU-010, CA4)."""
     versiones = plan_desde_json(obj.plan_estudio)
-    for dia in vigente(versiones)["dias"]:
-        for a in dia["actividades"]:
-            if a["modulo"] == modulo and a["tipo"] == tipo and a["estado"] == "pendiente":
-                a["estado"] = "completada"
-                obj.plan_estudio = plan_a_json(versiones)
-                return
+    dias = vigente(versiones)["dias"]
+    for t in (tipo, "refuerzo"):
+        for i, dia in enumerate(dias):
+            for a in dia["actividades"]:
+                if a["modulo"] == modulo and a["tipo"] == t and a["estado"] == "pendiente":
+                    a["estado"] = "completada"
+                    hoy = date.today()
+                    adelanto = (i > 0 and date.fromisoformat(dia["fecha"]) > hoy and date.fromisoformat(dias[i - 1]["fecha"]) == hoy
+                                and all(estado_del_dia(d) != "pendiente" for d in dias[:i]))
+                    if adelanto:
+                        reajustar(versiones, hoy, _fin(obj, versiones), "reajuste: adelanto", adelantar=True)
+                    obj.plan_estudio = plan_a_json(versiones)
+                    return
+
+
+def _fin(obj: ObjetivoEstudio, versiones: list[dict]) -> date:
+    """Último día disponible del objetivo: el primero del plan inicial más los días disponibles."""
+    return date.fromisoformat(versiones[0]["dias"][0]["fecha"]) + timedelta(days=obj.dias_disponibles - 1)
+
+
+def _modulo_de_refuerzo(estados: dict) -> str:
+    """El refuerzo va al primer módulo sin aprobar que ya está habilitado (en el orden pedagógico)."""
+    for m in ("aprender", "practicar", "consolidar"):
+        if estados[m]["estado"] == "habilitado":
+            return m
+    return "practicar"
+
+
+def revisar_plan(db: Session, obj: ObjetivoEstudio) -> bool:
+    """HU-010, CA3: si venció un día con actividades pendientes y el dominio no llega al requerido, reprograma lo
+    pendiente desde hoy dentro de los días disponibles y suma refuerzo. Se ejecuta al consultar el panel."""
+    versiones = plan_desde_json(obj.plan_estudio)
+    hoy = date.today()
+    if not dias_vencidos_con_pendientes(vigente(versiones), hoy):
+        return False
+    mejor, puntos, explicacion = _resultados(db, obj)
+    if nivel_dominio(mejor, list(puntos.values()), explicacion) >= required_mastery(obj.nota_objetivo):
+        return False
+    if not reajustar(versiones, hoy, _fin(obj, versiones), "reajuste: actividades pendientes", _modulo_de_refuerzo(_estado(db, obj))):
+        return False  # no quedan días: el estudiante puede extender el plan
+    obj.plan_estudio = plan_a_json(versiones)
+    db.add(obj)
+    return True
 
 
 def _registrar_dominio(db: Session, obj: ObjetivoEstudio) -> float:
@@ -224,7 +268,7 @@ def _fragmentos(db: Session, obj: ObjetivoEstudio, consulta: str) -> list[dict]:
     propios = db.exec(select(MaterialEstudio.id_material).where(MaterialEstudio.id_objetivo == obj.id_objetivo,
                                                                MaterialEstudio.estado == "procesado")).all()
     try:
-        r = rag.recuperar(obj.id_tema, consulta, list(propios))
+        r = rag.recuperar(obj.id_tema, consulta, list(propios), obj.lenguaje)
     except Exception as e:  # sin fragmentos la explicación se genera igual, solo con el enunciado y el código
         log.warning("No se pudo recuperar material para la explicación: %s", e)
         return []

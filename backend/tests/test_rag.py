@@ -285,12 +285,6 @@ def test_cuota_de_200_mb_por_estudiante(client):
     assert r.status_code == 409 and "200 MB" in r.json()["detail"]
 
 
-def test_limites_de_carga(client):
-    client.post("/api/auth/dev")
-    lim = client.get("/api/materials/limits").json()
-    assert (lim["formats"], lim["max_mb"], lim["max_files_per_topic"], lim["quota_mb"]) == (["pdf", "docx", "pptx"], 25, 20, 200)
-
-
 # ---------------- Recuperación (CA3 y CA5) ----------------
 
 def test_busqueda_devuelve_lo_mas_parecido_primero_y_aplica_el_umbral(client):
@@ -437,7 +431,7 @@ def test_material_insuficiente(client):
 
 
 def test_eliminar_material_propio(client):
-    """El estudiante elimina su material: se borran el archivo, sus fragmentos y el registro, y libera la cuota."""
+    """El estudiante elimina su material: se borran el archivo, sus fragmentos y el registro."""
     from pathlib import Path
     client.post("/api/auth/dev")
     plan = crear_plan(client)
@@ -450,7 +444,6 @@ def test_eliminar_material_propio(client):
     assert client.delete(f"/api/materials/{m['id']}").status_code == 204
     assert not ruta.exists() and client.get("/api/materials").json() == []
     assert not rag.almacen().get(where={"$and": [{"fuente": rag.PROPIA}, {"id_origen": m["id"]}]})["ids"]
-    assert client.get("/api/materials/limits").json()["used_bytes"] == 0
     assert client.delete(f"/api/materials/{m['id']}").status_code == 404
 
 
@@ -666,3 +659,16 @@ def test_el_servidor_retoma_el_material_pendiente_al_arrancar(client):
     asyncio.run(_reprocesar_pendientes())
     with Session(engine) as db:
         assert db.get(MaterialEstudio, id_material).estado == "procesado"
+
+
+def test_en_un_plan_de_python_no_se_usan_las_fuentes_de_java(client):
+    tema = id_tema("Sintaxis y estructuras de control")
+    texto = "Una estructura condicional ejecuta un bloque solo si la condición es verdadera, y si no, otro bloque distinto."
+    rag.indexar([rag.Seccion(texto, "5.2")], id_origen=3, id_tema=tema, fuente=rag.ACADEMICA,
+                nombre_archivo="Think Java, 2.ª ed. (Downey y Mayfield, 2019)", prefijo="java")
+    rag.indexar([rag.Seccion(texto + " En Python se marca con sangría.", "4.1")], id_origen=1, id_tema=tema,
+                fuente=rag.ACADEMICA, nombre_archivo="Documentación oficial de Python, versión 3.15", prefijo="py")
+    origenes = lambda lenguaje: {f["nombre_archivo"] for f in rag.buscar(tema, texto, [], minima=0.0, lenguaje=lenguaje)}
+    assert origenes("python") == {"Documentación oficial de Python, versión 3.15"}
+    assert "Think Java, 2.ª ed. (Downey y Mayfield, 2019)" in origenes("java")
+    assert len(origenes(None)) == 2

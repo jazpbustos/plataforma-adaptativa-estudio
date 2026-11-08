@@ -152,12 +152,6 @@ export function Sketch({ kind = 'compass', style, size = 120, className = '' }) 
 }
 
 // ---------- Pie de página como hoja superpuesta con borde recortado (tijera "dentada") ----------
-const CUT = (() => {
-  const pts = []
-  const n = 64
-  for (let i = 0; i <= n; i++) pts.push(`${(i / n * 100).toFixed(2)}% ${(18 - i / n * 10 + (i % 2 ? 7 : 0)).toFixed(1)}px`)
-  return `polygon(${pts.join(',')},100% 100%,0 100%)`
-})()
 export function CutFooter({ children }) {
   return (
     <div className="nb-cut">

@@ -112,7 +112,7 @@ def test_flujo_de_practicar_con_el_modelo(modelo, monkeypatch):
     consultas = []
     monkeypatch.setattr(rag, "precargar", lambda: None)  # sin cargar los modelos reales al arrancar
     monkeypatch.setattr(rag, "listo", lambda: True)
-    monkeypatch.setattr(rag, "recuperar", lambda tema, consulta, propios: consultas.append(consulta) or
+    monkeypatch.setattr(rag, "recuperar", lambda tema, consulta, propios, lenguaje=None: consultas.append(consulta) or
                         {"fragmentos": [{"contexto": "El caso base corta la recursión."}], "suficiente": True})
     SQLModel.metadata.drop_all(engine)
     with TestClient(app) as c:
@@ -150,3 +150,26 @@ def test_si_los_modelos_del_rag_no_estan_cargados_la_explicacion_no_espera(monke
     monkeypatch.setattr(rag, "listo", lambda: False)
     monkeypatch.setattr(rag, "recuperar", lambda *a: pytest.fail("no debería consultar el material"))
     assert _fragmentos(None, None, "consulta") == []
+
+
+def test_json_cortado_se_pide_de_nuevo_con_el_doble_de_tokens(monkeypatch):
+    """Una respuesta cortada por el límite de tokens se vuelve a pedir con el doble de espacio."""
+    from langchain_core.messages import AIMessage
+    from app.config import settings
+    from app.services import llm
+    pedidos = []
+
+    class Modelo:
+        def __call__(self, modelo, max_tokens, espera=None):
+            pedidos.append(max_tokens)
+            return self
+
+        def invoke(self, mensajes):
+            if len(pedidos) == 1:
+                return AIMessage('{"estado": "pres', response_metadata={"stop_reason": "max_tokens"})
+            return AIMessage('{"estado": "presente"}')
+
+    monkeypatch.setattr(settings, "anthropic_api_key", "clave-de-prueba")
+    monkeypatch.setattr(llm, "crear", Modelo())
+    assert llm.generar_json(llm.CONTENIDO, "s", "u", 600) == {"estado": "presente"}
+    assert pedidos == [600, 1200]

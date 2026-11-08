@@ -212,3 +212,13 @@ def test_desbloqueo_progresivo():
     assert e["consolidar"] == {"estado": HABILITADO, "falta": None}
     e = estado_modulos(80, 6, "correcta")
     assert all(e[m]["estado"] == APROBADO for m in e)
+
+
+def test_la_sangria_tiene_su_propia_pista():
+    """Un IndentationError no es un símbolo faltante: la pista y la explicación hablan de la sangría."""
+    from app.services import pistas
+    tipo = "sintaxis: IndentationError: expected an indented block after function definition on line 1"
+    assert pistas._categoria(tipo) == "sangria"
+    assert "sangría" in pistas.texto_intervencion(1, {"casos": []}, tipo)
+    assert "dos puntos" in pistas.texto_intervencion(2, {"casos": []}, tipo)
+    assert pistas._categoria("sintaxis: SyntaxError: invalid syntax") == "sintaxis"

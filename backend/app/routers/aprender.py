@@ -21,7 +21,8 @@ from ..models import Estudiante, MaterialEstudio, ObjetivoEstudio, SesionEstudio
 from ..security import current_user
 from ..services import aprender as gen
 from ..services import llm, rag
-from .practicar import _completar_actividad, _estado, _objetivo, _registrar_dominio
+from ..services.progreso import nivel_dominio
+from .practicar import _completar_actividad, _estado, _objetivo, _registrar_dominio, _resultados
 
 log = logging.getLogger(__name__)
 router = APIRouter(tags=["aprender"])
@@ -177,7 +178,7 @@ def _composicion(preguntas: list[dict]) -> str:
 
 def _fragmentos(obj: ObjetivoEstudio, consulta: str, propios: list[int]) -> dict:
     try:
-        return rag.recuperar(obj.id_tema, consulta, propios)
+        return rag.recuperar(obj.id_tema, consulta, propios, obj.lenguaje)
     except Exception as e:  # modelos del RAG o base vectorial no disponibles
         log.warning("No se pudo recuperar material: %s", e)
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, NO_DISPONIBLE)
@@ -288,13 +289,21 @@ def consultar(plan_id: int, body: ConsultaIn, est: Estudiante = Depends(current_
     concepto = body.concepto if body.concepto in _conceptos(tema) else None
     fragmentos = None
     if not body.general:
-        r = _fragmentos(obj, body.consulta, _propios(db, obj))
+        propios = _propios(db, obj)
+        r = _fragmentos(obj, body.consulta, propios)
+        if not r["suficiente"] and llm.configurado():
+            # Consulta breve o informal: se busca de nuevo con una versión completa de la pregunta (HU-003, CA5).
+            reformulada = gen.reformular_consulta(tema.nombre, body.consulta, concepto)
+            if reformulada:
+                log.info("Consulta reformulada para la búsqueda: %r -> %r", body.consulta, reformulada)
+                r = _fragmentos(obj, reformulada, propios)
         if not r["suficiente"]:
             return {"insuficiente": True}
         fragmentos = r["fragmentos"]
     _requiere_modelo()
     try:
-        return gen.responder_consulta(tema.nombre, body.consulta, obj.nivel_inicial, obj.lenguaje, fragmentos, concepto)
+        return gen.responder_consulta(tema.nombre, body.consulta, obj.nivel_inicial, obj.lenguaje, fragmentos, concepto,
+                                    _conceptos(tema))
     except llm.ModeloNoDisponible:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, NO_DISPONIBLE)
 
@@ -314,6 +323,21 @@ def generar_practica(plan_id: int, body: PracticaIn, est: Estudiante = Depends(c
     _requiere_modelo()
     try:
         return {"items": gen.practica(body.modo, tema.nombre, conceptos, obj.nivel_inicial, obj.lenguaje, por_concepto)}
+    except llm.ModeloNoDisponible:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, NO_DISPONIBLE)
+
+
+@router.post("/plans/{plan_id}/aprender/resumen")
+def resumir(plan_id: int, est: Estudiante = Depends(current_user), db: Session = Depends(get_session)):
+    """Resumen breve de los conceptos recorridos (o de todos, si no se recorrió ninguno). No se califica."""
+    obj = _objetivo(db, plan_id, est)
+    tema = _tema(db, obj)
+    recorridos = _recorridos(db, obj)
+    conceptos = [c for c in _conceptos(tema) if c in recorridos] or _conceptos(tema)
+    por_concepto = _por_concepto(obj, tema, conceptos, _propios(db, obj))
+    _requiere_modelo()
+    try:
+        return {"conceptos": conceptos, **gen.resumen_tema(tema.nombre, conceptos, obj.nivel_inicial, obj.lenguaje, por_concepto)}
     except llm.ModeloNoDisponible:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, NO_DISPONIBLE)
 
@@ -391,9 +415,11 @@ def entregar_evaluacion(plan_id: int, id_sesion: int, body: RespuestasIn, est: E
     s = db.get(SesionEstudio, id_sesion)
     if not s or s.id_objetivo != obj.id_objetivo or s.modo != EVALUACION:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Evaluación no encontrada")
-    if s.resultado_evaluacion is not None:
-        raise HTTPException(status.HTTP_409_CONFLICT, "Esta evaluación ya se entregó")
     d = _detalle(s)
+    if s.resultado_evaluacion is not None:
+        # Ya se corrigió (por ejemplo, se perdió la respuesta y se volvió a entregar): se devuelve el mismo resultado,
+        # sin corregir de nuevo ni cambiar lo registrado.
+        return _resultado_evaluacion(db, obj, d)
     tema = _tema(db, obj)
     aprobado_antes = _estado(db, obj)["aprender"]["estado"] == "aprobado"
     calificacion = gen.calificar(d["preguntas"], body.respuestas, tema.nombre)
@@ -405,9 +431,18 @@ def entregar_evaluacion(plan_id: int, id_sesion: int, body: RespuestasIn, est: E
     if calificacion["aprobado"] and not aprobado_antes:
         _completar_actividad(obj, "aprender", "evaluación")
         db.add(obj)
-    dominio = _registrar_dominio(db, obj)
+    _registrar_dominio(db, obj)
     db.commit()
-    estados = _estado(db, obj)
-    return {**calificacion, "preguntas": d["preguntas"], "composicion": _composicion(d["preguntas"]), "dominio": dominio,
+    return _resultado_evaluacion(db, obj, d)
+
+
+def _resultados_para_dominio(db: Session, obj: ObjetivoEstudio) -> tuple:
+    mejor, puntos, explicacion = _resultados(db, obj)
+    return mejor, list(puntos.values()), explicacion
+
+
+def _resultado_evaluacion(db: Session, obj: ObjetivoEstudio, d: dict) -> dict:
+    return {**d["calificacion"], "preguntas": d["preguntas"], "composicion": _composicion(d["preguntas"]),
+            "dominio": nivel_dominio(*_resultados_para_dominio(db, obj)),
             "mejor_evaluacion": max(x.resultado_evaluacion for x in _evaluaciones(db, obj)[0]),
-            "practicar": estados["practicar"]}
+            "practicar": _estado(db, obj)["practicar"]}

@@ -35,7 +35,7 @@ export default function Asistente({ estado, titulo, aviso, children, clave }) {
 
 const CHISPAS = [[14, 38], [27, 14], [70, 5], [113, 14], [126, 38], [129, 78], [11, 78]]
 
-function Cerebrito({ estado }) {
+export function Cerebrito({ estado }) {
   const piensa = estado === 'pensando'
   return (
     <svg className={`as-neurona as-${estado}`} viewBox="0 0 140 112" aria-hidden="true">

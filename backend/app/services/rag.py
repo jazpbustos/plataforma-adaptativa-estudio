@@ -386,19 +386,43 @@ def _orden(f: dict) -> float:
     return f.get("puntaje_reranking", f["similitud"])
 
 
+LENGUAJES = {"python": "Python", "java": "Java"}
+
+
+def de_otro_lenguaje(lenguaje: str | None) -> list[str]:
+    """Títulos de las fuentes académicas del catálogo escritas para un lenguaje distinto del indicado."""
+    if lenguaje not in LENGUAJES:
+        return []
+    import json
+    catalogo = Path(__file__).resolve().parents[2] / "fuentes" / "catalogo.json"
+    titulos = [f["titulo"] for f in json.loads(catalogo.read_text(encoding="utf-8"))["fuentes"].values()]
+    propio = LENGUAJES[lenguaje]
+    otros = [v for v in LENGUAJES.values() if v != propio]
+    return [t for t in titulos if any(re.search(rf"\b{o}\b", t) for o in otros) and not re.search(rf"\b{propio}\b", t)]
+
+
 def buscar(id_tema: int, consulta: str, materiales_propios: list[int], k: int | None = None,
-           minima: float | None = None) -> list[dict]:
+           minima: float | None = None, lenguaje: str | None = None) -> list[dict]:
     """Los k mejores fragmentos de cada fuente del tema, sin los que no alcanzan la similitud mínima.
 
     Solo fuentes académicas o material del propio estudiante: nunca el material que subió otra persona.
     En cada fuente se limita cuántos fragmentos puede aportar un mismo origen (max_por_origen y
     max_por_origen_propio en parametros.toml), para que un libro grande no acapare los resultados.
     Los parámetros se leen en cada llamada, así la evaluación puede probar otros valores.
+
+    lenguaje: el del objetivo de estudio. Se dejan afuera las fuentes académicas escritas para el otro lenguaje
+    (Think Java en un plan de Python, por ejemplo): sus ejemplos usan otra sintaxis, y en Sintaxis y estructuras
+    de control eso confunde la explicación y oculta las contradicciones del material propio. Si sin ellas no
+    queda ningún fragmento académico, se usan todas.
     """
     k = R["k_por_fuente"] if k is None else k
     minima = R["similitud_minima"] if minima is None else minima
-    encontrados = _de_una_fuente(consulta, {"$and": [{"id_tema": id_tema}, {"fuente": ACADEMICA}]}, k, minima,
-                                 R["max_por_origen"])
+    filtro = [{"id_tema": id_tema}, {"fuente": ACADEMICA}]
+    otras = de_otro_lenguaje(lenguaje)
+    encontrados = _de_una_fuente(consulta, {"$and": filtro + [{"nombre_archivo": {"$nin": otras}}]}, k, minima,
+                                 R["max_por_origen"]) if otras else []
+    if not encontrados:
+        encontrados = _de_una_fuente(consulta, {"$and": filtro}, k, minima, R["max_por_origen"])
     if materiales_propios:
         encontrados += _de_una_fuente(consulta, {"$and": [{"id_tema": id_tema}, {"fuente": PROPIA},
                                                           {"id_origen": {"$in": materiales_propios}}]}, k, minima,
@@ -467,7 +491,7 @@ def con_contexto(fragmentos: list[dict], vecinos: int = R["vecinos"]) -> list[di
     return grupos
 
 
-def recuperar(id_tema: int, consulta: str, materiales_propios: list[int]) -> dict:
+def recuperar(id_tema: int, consulta: str, materiales_propios: list[int], lenguaje: str | None = None) -> dict:
     """Fragmentos para generar contenido sobre un concepto, e indicación de si alcanzan (HU-003, CA5).
 
     Con menos de dos fragmentos sobre el umbral, el material es insuficiente: quien llama informa al
@@ -475,6 +499,6 @@ def recuperar(id_tema: int, consulta: str, materiales_propios: list[int]) -> dic
     como no respaldada por las fuentes del tema. Se cuentan los fragmentos que superaron el umbral,
     aunque dos vecinos se hayan fusionado en un mismo resultado.
     """
-    fragmentos = buscar(id_tema, consulta, materiales_propios)
+    fragmentos = buscar(id_tema, consulta, materiales_propios, lenguaje=lenguaje)
     recuperados = sum(len(f["recuperados"]) for f in fragmentos)
     return {"fragmentos": fragmentos, "suficiente": recuperados >= R["fragmentos_minimos"]}

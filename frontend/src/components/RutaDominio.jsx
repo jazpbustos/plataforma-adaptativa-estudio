@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { MODULES } from '../lib/format.js'
-import { Kicker, Floaty, BulbDoodle, CodeDoodle, BrainDoodle, FootDoodle, MedalDoodle, FlagDoodle } from './Doodles.jsx'
+import { Kicker, Floaty, BulbDoodle, CodeDoodle, BrainDoodle, FootDoodle, FlagDoodle } from './Doodles.jsx'
 
 /*
   "Tu ruta": un libro que se abre solo al scrollear. Cada hoja doble explica una etapa (a la izquierda qué se hace y para qué,

@@ -5,7 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, select
 
-from app.config import settings
+from app.config import P, settings
 from app.db import engine
 from app.main import app
 from app.models import SesionEstudio
@@ -65,7 +65,7 @@ def modelo(monkeypatch):
 @pytest.fixture()
 def material(monkeypatch):
     estado = {"fragmentos": [ACADEMICO, PROPIO], "suficiente": True, "consultas": []}
-    monkeypatch.setattr(rag, "recuperar", lambda tema, consulta, propios: estado["consultas"].append(consulta) or
+    monkeypatch.setattr(rag, "recuperar", lambda tema, consulta, propios, lenguaje=None: estado["consultas"].append(consulta) or
                         {"fragmentos": estado["fragmentos"], "suficiente": estado["suficiente"]})
     return estado
 
@@ -124,8 +124,17 @@ def test_composicion_de_la_evaluacion_segun_el_nivel(nivel, esperado):
     assert [s["tipo"] for s in c] == [gen.OPCION_MULTIPLE] * 4 + [gen.BREVE]  # CA5: cuatro y una breve
 
 
-def test_la_evaluacion_con_otra_cantidad_de_preguntas_no_se_acepta(modelo):
-    modelo.respuestas["Tarea: generá la evaluación"] = [evaluacion(4), evaluacion(4)]
+def test_la_evaluacion_pide_de_nuevo_solo_las_preguntas_que_faltan(modelo):
+    breve = evaluacion()["preguntas"][4]
+    modelo.respuestas["Tarea: generá la evaluación"] = [evaluacion(4), {"preguntas": [breve]}]
+    preguntas = gen.generar_evaluacion("Recursividad", CONCEPTOS, "intermedio", "python", {c: [ACADEMICO] for c in CONCEPTOS}, [])
+    assert [p["n"] for p in preguntas] == [1, 2, 3, 4, 5] and preguntas[4]["elementos"] == ["detiene la recursión"]
+    assert "una pregunta" in modelo.pedidos[-1]["sistema"]  # el segundo pedido es solo por la que faltaba
+
+
+def test_la_evaluacion_sin_preguntas_validas_no_se_acepta(modelo):
+    malas = {"preguntas": [{"enunciado": "", "opciones": []}] * 5}
+    modelo.respuestas["Tarea: generá la evaluación"] = [malas, malas, malas]
     with pytest.raises(gen.ContenidoNoValido):
         gen.generar_evaluacion("Recursividad", CONCEPTOS, "intermedio", "python", {c: [ACADEMICO] for c in CONCEPTOS}, [])
 
@@ -206,6 +215,47 @@ def test_consulta_libre(client, modelo, material):
     assert "<consulta>\n¿Por qué se desborda la pila?\n</consulta>" in modelo.pedidos[0]["usuario"]
 
 
+
+def test_consulta_con_fragmentos_que_no_la_responden(client, modelo, material):
+    """Los fragmentos superan el umbral pero no responden: se ofrece responder con conocimiento general (HU-003, CA5)."""
+    modelo.respuestas["Tarea: respondé la consulta"] = {"respaldada": False, "respuesta": "", "citas": []}
+    r = client.post(f"/api/plans/{client.plan}/aprender/consulta", json={"consulta": "¿Qué es la sintaxis?"}).json()
+    assert r == {"insuficiente": True}
+    modelo.respuestas["Tarea: respondé la consulta"] = {"respuesta": "Son las reglas de escritura del lenguaje.", "citas": []}
+    r = client.post(f"/api/plans/{client.plan}/aprender/consulta",
+                    json={"consulta": "¿Qué es la sintaxis?", "general": True}).json()
+    assert r["no_respaldada"] is True and r["respuesta"].startswith("Son las reglas")
+
+
+def test_consulta_breve_se_reformula_para_buscar(client, modelo, material, monkeypatch):
+    """Una consulta pobre que no recupera material se busca de nuevo con una versión completa (modelo de pistas)."""
+    monkeypatch.setattr(rag, "recuperar", lambda tema, consulta, propios, lenguaje=None: material["consultas"].append(consulta) or
+                        {"fragmentos": material["fragmentos"], "suficiente": consulta.startswith("¿Qué es la sintaxis")})
+    modelo.respuestas["prepara búsquedas"] = "¿Qué es la sintaxis de un lenguaje de programación?"
+    modelo.respuestas["Tarea: respondé la consulta"] = {"respaldada": True, "respuesta": "Son sus reglas [1].", "citas": [1]}
+    r = client.post(f"/api/plans/{client.plan}/aprender/consulta", json={"consulta": "q es sintaxis?"}).json()
+    assert r["respuesta"] == "Son sus reglas [1]."
+    assert material["consultas"] == ["q es sintaxis?", "¿Qué es la sintaxis de un lenguaje de programación?"]
+    reformulacion, respuesta = modelo.pedidos
+    assert reformulacion["modelo"] == P["llm"]["modelo_pistas"]
+    assert "<consulta>\nq es sintaxis?\n</consulta>" in respuesta["usuario"]  # se responde la pregunta original
+
+
+def test_consulta_sin_material_aunque_se_reformule(client, modelo, material):
+    material["suficiente"] = False
+    modelo.respuestas["prepara búsquedas"] = "¿Cuál es tu nombre?"
+    r = client.post(f"/api/plans/{client.plan}/aprender/consulta", json={"consulta": "como te llamas"}).json()
+    assert r == {"insuficiente": True} and len(material["consultas"]) == 2
+
+
+def test_resumen_del_tema(client, modelo, material):
+    """El resumen cubre los conceptos recorridos (o todos, sin ninguno recorrido), con citas, y no se califica."""
+    modelo.respuestas["Tarea: escribí un resumen breve"] = {"resumen": "- Caso base: corta la recursión [1].", "citas": [1]}
+    r = client.post(f"/api/plans/{client.plan}/aprender/resumen").json()
+    assert r["conceptos"] == CONCEPTOS and r["resumen"].startswith("- Caso base") and r["citas"][0]["n"] == 1
+    assert "Conceptos del resumen (solo estos, en este orden)" in modelo.pedidos[0]["sistema"]
+    assert client.get(f"/api/plans/{client.plan}/aprender").json()["aprobado"] is False
+
 def test_practica_repeticion_y_conceptos_recorridos(client, modelo, material):
     modelo.respuestas["preguntas de práctica"] = {"items": [
         {"concepto": c, "tipo": "verdadero o falso", "enunciado": f"¿{c}?", "correcta": True, "porque": "."} for c in CONCEPTOS]}
@@ -236,7 +286,9 @@ def test_evaluacion_aprobada_habilita_practicar(client, modelo, material):
                     json={"respuestas": {"1": 1, "2": 1, "3": 0, "4": 0, "5": "El caso base detiene la recursión."}}).json()
     assert r["puntaje"] == 3 and r["aprobado"] and r["practicar"]["estado"] == "habilitado"
     assert r["dominio"] == round(0.3 * 60, 1)
-    assert client.post(f"/api/plans/{client.plan}/aprender/evaluacion/{ev['id']}", json={"respuestas": {}}).status_code == 409
+    # entregarla de nuevo (por ejemplo, si se perdió la respuesta) devuelve el mismo resultado, sin corregir otra vez
+    otra = client.post(f"/api/plans/{client.plan}/aprender/evaluacion/{ev['id']}", json={"respuestas": {}})
+    assert otra.status_code == 200 and otra.json()["puntaje"] == 3 and otra.json()["dominio"] == r["dominio"]
     estado = client.get(f"/api/plans/{client.plan}/aprender").json()
     assert estado["aprobado"] and estado["ultima_evaluacion"]["composicion"] == "1 básica, 3 intermedias y 1 avanzada"
     assert client.get(f"/api/plans/{client.plan}/practicar").json()["ejercicio"] is not None
@@ -307,3 +359,76 @@ def test_citas_con_el_fragmento_y_pasos_de_la_secuencia(client, modelo, material
     assert c["pasos"] == {"leccion": True, "tarjetas": True, "cuestionario": False} and c["repeticion"] == 1
     assert len(client.get(f"/api/plans/{client.plan}/aprender/repeticion?concepto=caso base").json()["items"]) == 1
     assert client.get(f"/api/plans/{client.plan}/aprender/repeticion?concepto=pila de llamadas").json()["items"] == []
+
+
+def test_items_que_remiten_al_material_se_descartan():
+    """El estudiante no ve los fragmentos: un ítem que remite a ellos no se puede responder solo."""
+    assert gen._remite_al_material("Según el fragmento, ¿qué es una pila?")
+    assert gen._remite_al_material("¿Qué dice el autor sobre los bucles?")
+    assert gen._remite_al_material("Todas las anteriores")
+    assert not gen._remite_al_material("¿Cuántas vocales tiene el texto 'hola'?")
+    r = {"items": [{"concepto": "caso base", "frente": "Según el fragmento, ¿qué es el caso base?", "dorso": "."},
+                   {"concepto": "caso base", "frente": "¿Qué hace el caso base?", "dorso": "Corta la recursión."}]}
+    items = gen._validar_practica("tarjetas", r, ["caso base"])
+    assert [i["frente"] for i in items] == ["¿Qué hace el caso base?"]
+    with pytest.raises(gen.ContenidoNoValido):
+        gen._validar_pregunta({"enunciado": "¿Qué afirma el material?", "opciones": ["a", "b", "c", "d"], "correcta": 0, "porque": "."},
+                              n_opciones=(4,))
+
+
+def test_las_reglas_de_calidad_van_en_todos_los_pedidos():
+    regla = gen._calidad("python")
+    assert "se entiende sola" in regla and "Python" in regla and "hora vale 2" in regla
+    assert "Evaluá solo lo que el estudiante estudió" in regla
+
+
+def test_explicacion_con_los_datos_primero(modelo):
+    datos = json.dumps({"citas": [1], "pregunta": explicacion()["pregunta"], "contradiccion": None})
+    modelo.respuestas["Tarea: explicá"] = f"{datos}\n{gen.SEPARADOR}\n### La idea\nUna **variable** guarda un valor [1]."
+    r = gen.explicar_concepto("Sintaxis", "variables", "principiante", "python", [ACADEMICO])
+    assert r["explicacion"] == "### La idea\nUna **variable** guarda un valor [1]." and r["citas"][0]["n"] == 1
+
+
+def test_explicacion_cortada_por_largo_conserva_los_datos_y_recorta_el_final():
+    datos = json.dumps({"citas": [1], "pregunta": explicacion()["pregunta"]})
+    texto = f"{datos}\n{gen.SEPARADOR}\n### La idea\nPárrafo completo [1].\n\n### Ejemplo\n```python\nx = 1\nprint(x"
+    r = gen._separar(texto, cortada=True)
+    assert r["explicacion"].strip() == "### La idea\nPárrafo completo [1]." and r["pregunta"]["enunciado"]
+
+
+def test_contradiccion_con_la_frase_textual_de_cada_fragmento(modelo):
+    propio = {**PROPIO, "contexto": "En Python los bloques van entre llaves. La sangría es estética."}
+    academico = {**ACADEMICO, "contexto": "Indentation is Python's way of grouping statements. More text here."}
+    datos = {"citas": [1, 2], "pregunta": explicacion()["pregunta"], "contradiccion": {
+        "propio": 1, "academico": 2, "detalle": "llaves contra sangría",
+        "frase_propio": "En Python los bloques van entre llaves.",
+        "frase_academico": "Indentation is Python's way of grouping statements.",
+        "traduccion_academico": "La sangría es la forma en que Python agrupa las sentencias."}}
+    modelo.respuestas["Tarea: explicá"] = f"{json.dumps(datos)}\\n{gen.SEPARADOR}\\n### La idea\\nTexto [2]."
+    c = gen.explicar_concepto("Sintaxis", "condicionales", "principiante", "python", [propio, academico])["contradiccion"]
+    assert c["propio"]["frase"] == "En Python los bloques van entre llaves."
+    assert c["academico"]["traduccion"].startswith("La sangría")
+    datos["contradiccion"]["frase_academico"] = "Una frase que no está en el fragmento académico."
+    modelo.respuestas["Tarea: explicá"] = f"{json.dumps(datos)}\\n{gen.SEPARADOR}\\n### La idea\\nTexto [2]."
+    c = gen.explicar_concepto("Sintaxis", "condicionales", "principiante", "python", [propio, academico])["contradiccion"]
+    assert c["academico"]["frase"] is None and "traduccion" not in c["academico"]
+
+
+def test_consulta_con_los_datos_primero_y_pedido_no_reconocido(modelo):
+    datos = json.dumps({"respaldada": True, "citas": [1], "pedido": None, "concepto": None})
+    modelo.respuestas["Tarea: respondé la consulta"] = f"{datos}\n{gen.SEPARADOR}\nEl caso base corta la recursión [1]."
+    r = gen.responder_consulta("Recursividad", "¿qué es el caso base?", "principiante", "python", [ACADEMICO], None, CONCEPTOS)
+    assert r["respuesta"] == "El caso base corta la recursión [1]." and r["citas"][0]["n"] == 1
+    pedido = json.dumps({"respaldada": True, "citas": [], "pedido": "tarjetas", "concepto": CONCEPTOS[0]})
+    modelo.respuestas["Tarea: respondé la consulta"] = f"{pedido}\n{gen.SEPARADOR}\n"
+    assert gen.responder_consulta("Recursividad", "tarejtas del caso base", "principiante", "python", [ACADEMICO], None,
+                                  CONCEPTOS) == {"pedido": "tarjetas", "concepto": CONCEPTOS[0]}
+
+
+def test_evaluacion_cortada_conserva_las_preguntas_completas(modelo):
+    completo = json.dumps(evaluacion(), ensure_ascii=False)
+    cortado = completo[:completo.index('{"tipo": "respuesta breve"') + 30]  # la quinta queda a la mitad
+    breve = evaluacion()["preguntas"][4]
+    modelo.respuestas["Tarea: generá la evaluación"] = [cortado, {"preguntas": [breve]}]
+    preguntas = gen.generar_evaluacion("Recursividad", CONCEPTOS, "intermedio", "python", {c: [ACADEMICO] for c in CONCEPTOS}, [])
+    assert len(preguntas) == 5 and len(modelo.pedidos) == 2 and "una pregunta" in modelo.pedidos[1]["sistema"]

@@ -111,6 +111,8 @@ class SesionEstudio(SQLModel, table=True):
     modo: str | None = None
     # Solo en Aprender, JSON: conceptos recorridos y tarjetas o preguntas falladas (las retoma el modo repetición).
     detalle_aprender: str | None = None
+    # Solo en Consolidar, JSON: la charla guiada (preguntas por concepto, respuestas y devoluciones) y su fase.
+    detalle_consolidar: str | None = None
     resultado_evaluacion: float | None = None  # 0 a 100, solo en el modo evaluación; el mejor es A en HU-010
     fecha_hora_inicio: datetime = Field(default_factory=ahora)
     duracion_minutos: int = 0

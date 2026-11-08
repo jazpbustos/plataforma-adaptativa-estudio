@@ -7,7 +7,16 @@ inicial y el dominio requerido por la nota objetivo. Cada nota exige un mínimo 
 Formato guardado (diccionario de datos): un arreglo de versiones. Cada versión tiene su número, fecha
 de generación, motivo (inicial o reajuste) y lista de días; cada día, su fecha y sus actividades; y
 cada actividad, el módulo, el tipo (contenido, evaluación, ejercicio o refuerzo) y el estado
-(pendiente o completada). Un reajuste (HU-010) agrega una versión nueva sin tocar las anteriores.
+(pendiente, completada o reprogramada). Un reajuste (HU-010) agrega una versión nueva sin tocar las anteriores.
+
+Reajustes (HU-010, CA3 y CA4) y extensión:
+- Día vencido con actividades pendientes y dominio inferior al requerido: las pendientes se reprograman desde hoy
+  dentro de los días disponibles y se suma refuerzo (CA3). En el día vencido quedan como «reprogramada».
+- Avance sobre el día siguiente con el de hoy completo: las actividades restantes se adelantan un día (CA4).
+- Plan terminado sin alcanzar el dominio: el estudiante puede extenderlo de 1 a 7 días; lo pendiente y el
+  refuerzo se reparten en los días nuevos.
+- Dominio requerido alcanzado: el estudiante puede seguir con el nivel siguiente durante 1 a 7 días (HU-010, CA6);
+  la versión nueva propone la evaluación de Aprender, ejercicios nuevos y la explicación de Consolidar.
 """
 import json
 from datetime import date, timedelta
@@ -135,5 +144,107 @@ def modulo_del_dia(dia: dict) -> str:
     return dia["actividades"][0]["modulo"]
 
 
-def dia_completo(dia: dict) -> bool:
-    return all(a["estado"] == "completada" for a in dia["actividades"])
+# ---------------- Reajuste del plan (HU-010, CA3 y CA4) ----------------
+
+REPROGRAMADA = "reprogramada"
+DIAS_EXTENSION = (1, 7)
+
+
+def _fecha(dia: dict) -> date:
+    return date.fromisoformat(dia["fecha"])
+
+
+def _copia(x):
+    return json.loads(json.dumps(x))
+
+
+def _repartir(grupos: list[list[dict]], n: int) -> list[list[dict]]:
+    """Reparte los grupos (uno por día original), en orden, en `n` días: si sobran grupos, se juntan los consecutivos."""
+    if len(grupos) <= n:
+        return [list(g) for g in grupos]
+    base, extra = divmod(len(grupos), n)
+    dias, i = [], 0
+    for k in range(n):
+        tam = base + (1 if k < extra else 0)
+        dias.append([a for g in grupos[i:i + tam] for a in g])
+        i += tam
+    return dias
+
+
+def dias_vencidos_con_pendientes(version: dict, hoy: date) -> bool:
+    return any(_fecha(d) < hoy and any(a["estado"] == "pendiente" for a in d["actividades"]) for d in version["dias"])
+
+
+def reajustar(versiones: list[dict], hoy: date, fin: date, motivo: str, refuerzo: str | None = None,
+              adelantar: bool = False) -> bool:
+    """Agrega una versión nueva del plan. Devuelve False si no quedan días disponibles (de hoy a `fin`).
+
+    - Los días anteriores a hoy se conservan; sus actividades pendientes pasan a «reprogramada» y se vuelven a
+      planificar desde hoy, antes que las de los días siguientes (CA3).
+    - Con `adelantar`, las actividades del día siguiente se suman a las de hoy y las demás se corren un día (CA4).
+    - Con `refuerzo` (módulo), los días que quedan libres reciben una actividad de refuerzo de ese módulo; si no
+      queda ninguno libre, el refuerzo se suma al primer día.
+    """
+    n = (fin - hoy).days + 1
+    if n <= 0:
+        return False
+    nueva = _copia(vigente(versiones))
+    pasados = [d for d in nueva["dias"] if _fecha(d) < hoy]
+    siguientes = [d for d in nueva["dias"] if _fecha(d) >= hoy]
+    grupos = []
+    for d in pasados:
+        pendientes = [a for a in d["actividades"] if a["estado"] == "pendiente"]
+        if pendientes:
+            grupos.append([{**a} for a in pendientes])
+            for a in pendientes:
+                a["estado"] = REPROGRAMADA
+    futuros = [list(d["actividades"]) for d in siguientes]
+    if adelantar and len(futuros) >= 2:
+        futuros = [futuros[0] + futuros[1]] + futuros[2:]
+    dias = _repartir(grupos + futuros, n)
+    libres = n - len(dias)
+    if refuerzo:
+        if libres:
+            dias += [[_actividad(refuerzo, "refuerzo")] for _ in range(libres)]
+        elif dias:
+            dias[0].append(_actividad(refuerzo, "refuerzo"))
+    nueva["dias"] = pasados + [{"fecha": (hoy + timedelta(days=i)).isoformat(), "actividades": acts}
+                               for i, acts in enumerate(dias) if acts]
+    nueva.update(numero=len(versiones) + 1, fecha_generacion=hoy.isoformat(), motivo=motivo)
+    versiones.append(nueva)
+    return True
+
+
+def estado_del_dia(dia: dict) -> str:
+    """hecha (todo completado), no realizada (venció y lo pendiente se reprogramó) o pendiente."""
+    estados = {a["estado"] for a in dia["actividades"]}
+    if estados <= {"completada"}:
+        return "hecha"
+    return "no realizada" if "pendiente" not in estados else "pendiente"
+
+
+# ---------------- Avance de nivel (HU-010, CA6) ----------------
+
+NIVELES = ("principiante", "intermedio", "avanzado")
+AVANCE = "avance de nivel"
+
+
+def nivel_siguiente(nivel: str) -> str | None:
+    i = NIVELES.index(nivel) if nivel in NIVELES else len(NIVELES) - 1
+    return NIVELES[i + 1] if i + 1 < len(NIVELES) else None
+
+
+def avanzar_nivel(versiones: list[dict], hoy: date, dias: int) -> None:
+    """Agrega la versión del avance de nivel: se conservan los días anteriores a hoy y, desde hoy, se reparten en
+    `dias` días la evaluación de Aprender, tres ejercicios nuevos de Practicar y la explicación de Consolidar, con el
+    nivel nuevo. Los días que quedan libres reciben un ejercicio de refuerzo."""
+    nueva = _copia(vigente(versiones))
+    pasados = [d for d in nueva["dias"] if _fecha(d) < hoy]
+    grupos = ([[_actividad("aprender", "evaluación")]] + [[_actividad("practicar", "ejercicio")] for _ in range(3)]
+              + [[_actividad("consolidar", "evaluación")]])
+    por_dia = _repartir(grupos, dias)
+    por_dia += [[_actividad("practicar", "refuerzo")] for _ in range(dias - len(por_dia))]
+    nueva["dias"] = pasados + [{"fecha": (hoy + timedelta(days=i)).isoformat(), "actividades": acts}
+                               for i, acts in enumerate(por_dia)]
+    nueva.update(numero=len(versiones) + 1, fecha_generacion=hoy.isoformat(), motivo=AVANCE)
+    versiones.append(nueva)

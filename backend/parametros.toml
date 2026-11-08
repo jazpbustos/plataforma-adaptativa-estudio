@@ -43,8 +43,8 @@ modelo_contenido = "claude-sonnet-5-5"   # contenido, contraste de fuentes y eva
 modelo_pistas = "claude-haiku-5-5"       # pistas mínimas
 espera_maxima_segundos = 20           # si no responde a tiempo se usa el texto de respaldo
 reintentos = 1
-max_tokens_pista = 150                # pista mínima: una oración, dos como máximo
-max_tokens_explicacion = 300          # explicación elaborada: tres oraciones como máximo
+max_tokens_pista = 300                # pista mínima: una oración, dos como máximo
+max_tokens_explicacion = 600          # explicación elaborada: tres oraciones como máximo
 largo_maximo_pista = 400              # caracteres: una respuesta más larga no es una pista mínima y se descarta
 largo_maximo_explicacion = 900       # carga cognitiva (Shute, 2008): una explicación más larga se descarta
 fragmentos_explicacion = 3            # fragmentos del material que acompañan el pedido de la explicación elaborada
@@ -72,12 +72,16 @@ aprobacion = 0.6
 mezcla = { principiante = [3, 2, 0], intermedio = [1, 3, 1], avanzado = [0, 2, 3] }
 items_por_concepto = 4                # tarjetas o preguntas al practicar un solo concepto
 fragmentos_por_concepto = 3          # fragmentos del RAG que acompañan cada concepto en tarjetas, cuestionario y evaluación
-largo_maximo_explicacion = 8000      # caracteres de la explicación de un concepto en la lección guiada (clase ordenada por secciones)
-max_tokens_explicacion = 4500
-espera_maxima_segundos = 90           # el contenido de Aprender es más largo que una pista: se le da más tiempo
-max_tokens_consulta = 500
+largo_maximo_explicacion = 12000     # caracteres de la explicación de un concepto en la lección guiada (clase ordenada por secciones)
+max_tokens_explicacion = 6000         # con margen: si igual se corta, los datos ya llegaron (van primero) y se recorta el final
+espera_maxima_segundos = 150          # el contenido de Aprender es más largo que una pista: se le da más tiempo
+max_tokens_consulta = 1500                # si igual se corta, se conserva hasta el último párrafo completo
+max_tokens_reformulacion = 200        # reescritura de una consulta breve antes de buscar de nuevo (modelo de pistas)
+largo_maximo_reformulacion = 300
+largo_texto_cita = 1600              # caracteres del fragmento (con sus vecinos) que se envían para mostrar en cada cita
 max_tokens_practica = 3000
-max_tokens_evaluacion = 3500
+max_tokens_resumen = 1500               # resumen breve del tema al terminar de recorrer los conceptos
+max_tokens_evaluacion = 5000
 
 [practicar]                          # Alcances y HU-011
 ejercicios_para_aprobar = 5
@@ -87,6 +91,17 @@ puntos = { sin_ayuda = 10, pista_minima = 7, explicacion_elaborada = 4 }
 [consolidar]                         # HU-008
 conceptos_min = 3
 conceptos_max = 5
+largo_minimo = 120                   # caracteres de la explicación: menos no alcanza para explicar un tema
+largo_maximo = 4000
+largo_minimo_respuesta = 2           # respuesta en la charla («no sé» también vale) o a una pregunta de seguimiento
+largo_maximo_respuesta = 1500
+seguimientos_por_concepto = 3        # preguntas de seguimiento por concepto en la charla antes de pasar al siguiente
+max_tokens_disparadores = 2000       # una pregunta disparadora por concepto, en un solo pedido
+max_tokens_charla = 1500             # evaluación de una respuesta de la charla y devolución de Brity
+max_tokens_evaluacion = 3000         # cada una de las dos evaluaciones independientes (CA5)
+max_tokens_seguimiento = 500
+largo_maximo_seguimiento = 300       # caracteres: una pregunta, no una explicación
+espera_maxima_segundos = 120
 
 [dominio]                            # HU-010: 0,3 × A + 0,4 × P + 0,3 × C
 peso_aprender = 0.3

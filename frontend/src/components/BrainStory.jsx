@@ -8,7 +8,7 @@ import { Kicker } from './Doodles.jsx'
   que se ensambla y enciende una región por módulo a medida que se scrollea. Se puede arrastrar para girarlo.
   Mismo estilo de granitos que el hero. Las regiones son una metáfora visual, no anatomía.
 */
-export const CHAPTERS = [
+const CHAPTERS = [
   { n: '', kicker: 'Los módulos', title: 'Tres maneras de hacer que una idea', accent: 'lleve a la siguiente.', desc: 'Se desbloquean en orden y cada uno suma a tu nivel de dominio del tema.', color: 'var(--violet)', intro: true },
   ...Object.values(MODULES).map((m) => ({ n: m.n, kicker: m.label, title: m.verb.split(', ')[0] + ',', accent: m.verb.split(', ')[1], desc: m.desc, color: m.color })),
   { n: '04', kicker: 'Dominio', title: 'Tu red,', accent: null, desc: 'Cada módulo suma a tu nivel de dominio del tema. Lo ves crecer mientras avanzás.', color: 'var(--violet)', pct: true },

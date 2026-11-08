@@ -11,7 +11,6 @@ export const MODULES = {
 // El alumno elige el tema dentro de ella, no la materia. Cuando se confirme cuál es, se cambia solo esta constante.
 export const MATERIA = 'Materia de programación'
 
-export const WEEKDAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'] // etiquetas de la semana en Progreso
 // Nivel inicial declarado por el estudiante (diccionario de datos: OBJETIVO_ESTUDIO.nivel_inicial).
 export const LEVELS = {
   principiante: { label: 'Principiante', desc: 'Es la primera vez que lo veo o lo vi muy por arriba.' },
@@ -40,6 +39,8 @@ export const maxGradeFor = (days) => (days >= 5 ? 10 : days >= 4 ? 9 : days >= 3
 
 // Las fechas llegan como "2026-09-21": las parseamos como fecha local, no UTC.
 export const parseDay = (s) => { const [y, m, d] = String(s).slice(0, 10).split('-').map(Number); return new Date(y, m - 1, d) }
+// El backend guarda los instantes en UTC sin indicarlo: se marcan como UTC para mostrarlos en la hora local.
+export const instante = (iso) => new Date(/[zZ]|[+-]\d\d:\d\d$/.test(iso) ? iso : `${iso}Z`)
 export const toISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 export const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x }
 

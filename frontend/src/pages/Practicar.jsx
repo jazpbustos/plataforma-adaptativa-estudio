@@ -3,8 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useOutletContext } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import Asistente from '../components/Asistente.jsx'
-import { IconLock } from '../components/Icons.jsx'
-import PageHeader from '../components/PageHeader.jsx'
+import { Bloqueado, Pantalla, SinPlan } from '../components/PageHeader.jsx'
 import Synapse from '../components/Synapse.jsx'
 import { api } from '../lib/api.js'
 import { LANGUAGES, MODULES } from '../lib/format.js'
@@ -37,35 +36,11 @@ export default function Practicar() {
   }, [plan])
   useEffect(() => { setEstado(null); cargar() }, [cargar])
 
-  if (!plan) return <SinPlan />
+  if (!plan) return <SinPlan m={m} />
   if (error && !estado) return <p role="alert" className="text-red">{error}</p>
   if (!estado) return <Synapse>Buscando tu próximo ejercicio</Synapse>
-  if (!estado.ejercicio) return <Bloqueado estado={estado} />
+  if (!estado.ejercicio) return <Bloqueado m={m} tema={estado.tema} falta={estado.modulo.falta} anterior={MODULES.aprender} />
   return <Ejercicio key={`${estado.ejercicio.id}-${estado.ejercicio.intentos.length}`} plan={plan} estado={estado} onSiguiente={() => { cargar(); reload() }} />
-}
-
-function SinPlan() {
-  return (
-    <div className="grid gap-6">
-      <PageHeader title="Módulo" accent={m.label} accentColor={m.color} />
-      <p className="text-sm">Todavía no armaste tu plan.</p>
-      <div><Link to="/empezar" className="btn btn-primary">Armar mi plan <span className="arrow">→</span></Link></div>
-    </div>
-  )
-}
-
-// HU-011, CA3: el módulo bloqueado informa qué condición falta cumplir.
-function Bloqueado({ estado }) {
-  return (
-    <div className="grid gap-8" style={{ '--c': m.color }}>
-      <PageHeader title="Módulo" accent={m.label} accentColor={m.color} sub={estado.tema} />
-      <section className="card grid justify-items-start gap-3 p-6">
-        <span className="grid size-9 place-items-center rounded-full border-[1.5px] border-dashed border-rule text-muted"><IconLock className="size-4" /></span>
-        <p className="text-sm">{estado.modulo.falta}</p>
-        <Link to="/app/aprender" className="btn btn-primary btn-sm">Ir a Aprender <span className="arrow">→</span></Link>
-      </section>
-    </div>
-  )
 }
 
 function Ejercicio({ plan, estado, onSiguiente }) {
@@ -136,76 +111,79 @@ function Ejercicio({ plan, estado, onSiguiente }) {
   const onEditar = (valor) => { ultimaEdicion.current = Date.now(); setCodigos((c) => ({ ...c, [lenguaje]: valor ?? '' })) }
   const titulo = ej.posicion ? `Ejercicio ${ej.posicion} de ${estado.requeridos}` : ej.es_repaso ? 'Repaso' : 'Práctica adicional'
 
+  // Un solo bloque que ocupa el alto de la ventana, como en Aprender: arriba el enunciado, en el medio el editor
+  // (toma el alto que queda), la barra y la consola, y abajo el avance del módulo. La página no se desplaza.
   return (
-    <div className="grid gap-6" style={{ '--c': m.color }}>
-      <PageHeader title="Módulo" accent={m.label} accentColor={m.color} sub={`${estado.tema} · ${titulo} · ${ej.dificultad}`} />
+    <Pantalla color={m.color} title="Módulo" accent={m.label} accentColor={m.color} sub={`${estado.tema} · ${titulo} · ${ej.dificultad}`}>
 
-      <section className="rounded-2xl border border-dashed border-rule bg-[color-mix(in_srgb,var(--bg-card)_70%,transparent)] px-5 py-4">
-        <h2 className="text-[1.05rem] font-medium tracking-[-.01em]">{ej.titulo}</h2>
-        <p className="mt-1 text-[.95rem]">{ej.enunciado}</p>
-        <ul className="mt-3 grid gap-1 font-mono text-xs text-muted">
-          {ej.ejemplos.map((c, i) => <li key={i}>{fmtLlamada(c.entrada)} → {JSON.stringify(c.salida)}</li>)}
-        </ul>
-        <p className="mt-3 text-xs text-muted">
-          Tiempo esperado: {ej.tiempo_esperado} min · {fijo ? 'El lenguaje puede cambiarse antes de iniciar el próximo ejercicio.' : 'Elegí el lenguaje antes del primer intento.'}
-        </p>
-      </section>
-
-      <section className="overflow-hidden rounded-2xl bg-[#1e1e1e] shadow-sm">
-        {/* El ayudante vive en la esquina del editor: la pista aparece donde el estudiante está mirando */}
-        <div className="relative">
-          <Editor height="380px" language={lenguaje} theme="vs-dark" value={codigos[lenguaje]} onChange={onEditar}
-            options={{ minimap: { enabled: false }, fontSize: 14, fontFamily: 'JetBrains Mono, monospace', scrollBeyondLastLine: false,
-              tabSize: 4, automaticLayout: true, padding: { top: 14 }, readOnly: resuelto }}
-            loading={<span className="text-sm text-white/60">Cargando el editor…</span>}
-            onMount={(editor, monaco) => editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => document.getElementById('ejecutar')?.click())} />
-          <Ayudante enviando={enviando} lento={lento} intentos={intentos} ultimo={ultimo} intervencion={intervencion} resuelto={resuelto} />
-        </div>
-        {/* Barra de la consola: lenguaje a la izquierda y ejecutar a la derecha, como en un IDE */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 bg-[#252526] px-4 py-2">
-          <div role="radiogroup" aria-label="Lenguaje" className="flex items-center gap-1">
-            {Object.entries(LANGUAGES).map(([k, label]) => (
-              <button key={k} type="button" role="radio" aria-checked={lenguaje === k} disabled={!!fijo && fijo !== k}
-                title={fijo && fijo !== k ? 'El lenguaje se puede cambiar en el próximo ejercicio' : undefined}
-                className="cs-lenguaje" onClick={() => cambiarLenguaje(k)}>{label}</button>
-            ))}
+      <section className="card relative flex min-w-0 flex-col overflow-hidden lg:min-h-0 lg:flex-1">
+        <div className="max-h-[32%] flex-none overflow-y-auto border-b border-line px-5 py-3.5 [scrollbar-width:thin]">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+            <h2 className="text-[1.05rem] font-medium tracking-[-.01em]">{ej.titulo}</h2>
+            <span className="text-xs text-muted">Tiempo esperado: {ej.tiempo_esperado} min</span>
           </div>
-          {resuelto
-            ? <div className="flex flex-wrap items-center gap-2">
-                {config?.dev_login && <button type="button" className="cs-accion cs-accion-prueba" onClick={reiniciar}
-                  title="Modo prueba: borra los intentos, las pistas y los puntos de este ejercicio">Reiniciar ejercicio</button>}
-                <button type="button" className="cs-run cs-run-ok" onClick={onSiguiente}>{aprobado ? 'Practicar otro' : 'Siguiente ejercicio'} →</button>
-              </div>
-            : <div className="flex flex-wrap items-center gap-2">
-                <button type="button" className="cs-accion" onClick={aPlantilla} title="Vuelve el editor al código inicial (los intentos quedan registrados)">↺ Plantilla</button>
-                {config?.dev_login && intentos.length > 0 && (
-                  <button type="button" className="cs-accion cs-accion-prueba" onClick={reiniciar}
-                    title="Modo prueba: borra los intentos, las pistas y los puntos de este ejercicio">Reiniciar ejercicio</button>
-                )}
-                <span className="mx-1 hidden font-mono text-[.7rem] text-white/40 md:inline">Ctrl + Enter</span>
-                <button id="ejecutar" type="button" className="cs-run" disabled={enviando} onClick={ejecutar}>
-                  {enviando ? <span className="cs-spin" aria-hidden="true" /> : <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 1.8v8.4L10 6z" /></svg>}
-                  {enviando ? (lento ? 'Analizando…' : 'Ejecutando…') : 'Ejecutar'}
-                </button>
-              </div>}
+          <p className="mt-1 text-[.95rem]">{ej.enunciado}</p>
+          <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-1 font-mono text-xs text-muted">
+            {ej.ejemplos.map((c, i) => <li key={i}>{fmtLlamada(c.entrada)} → {JSON.stringify(c.salida)}</li>)}
+          </ul>
         </div>
-        <Consola intentos={intentos} />
-      </section>
 
-      {error && <p role="alert" className="text-sm text-red">{error}</p>}
+        <div className="flex min-h-0 flex-1 flex-col bg-[#1e1e1e]">
+          {/* El ayudante vive en la esquina del editor: la pista aparece donde el estudiante está mirando */}
+          <div className="relative h-[380px] lg:h-auto lg:min-h-[180px] lg:flex-1">
+            <Editor height="100%" language={lenguaje} theme="vs-dark" value={codigos[lenguaje]} onChange={onEditar}
+              options={{ minimap: { enabled: false }, fontSize: 14, fontFamily: 'JetBrains Mono, monospace', fontLigatures: false,
+                scrollBeyondLastLine: false, tabSize: 4, automaticLayout: true, padding: { top: 14 }, readOnly: resuelto }}
+              loading={<span className="text-sm text-white/60">Cargando el editor…</span>}
+              onMount={(editor, monaco) => editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => document.getElementById('ejecutar')?.click())} />
+            <Ayudante enviando={enviando} lento={lento} intentos={intentos} ultimo={ultimo} intervencion={intervencion} resuelto={resuelto} />
+          </div>
+          {/* Barra de la consola: lenguaje a la izquierda y ejecutar a la derecha, como en un IDE */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 bg-[#252526] px-4 py-2">
+            <div role="radiogroup" aria-label="Lenguaje" className="flex items-center gap-1"
+              title={fijo ? 'El lenguaje puede cambiarse antes de iniciar el próximo ejercicio' : 'Elegí el lenguaje antes del primer intento'}>
+              {Object.entries(LANGUAGES).map(([k, label]) => (
+                <button key={k} type="button" role="radio" aria-checked={lenguaje === k} disabled={!!fijo && fijo !== k}
+                  title={fijo && fijo !== k ? 'El lenguaje se puede cambiar en el próximo ejercicio' : undefined}
+                  className="cs-lenguaje" onClick={() => cambiarLenguaje(k)}>{label}</button>
+              ))}
+            </div>
+            {resuelto
+              ? <div className="flex flex-wrap items-center gap-2">
+                  {config?.dev_login && <button type="button" className="cs-accion cs-accion-prueba" onClick={reiniciar}
+                    title="Modo prueba: borra los intentos, las pistas y los puntos de este ejercicio">Reiniciar ejercicio</button>}
+                  <button type="button" className="cs-run cs-run-ok" onClick={onSiguiente}>{aprobado ? 'Practicar otro' : 'Siguiente ejercicio'} →</button>
+                </div>
+              : <div className="flex flex-wrap items-center gap-2">
+                  <button type="button" className="cs-accion" onClick={aPlantilla} title="Vuelve el editor al código inicial (los intentos quedan registrados)">↺ Plantilla</button>
+                  {config?.dev_login && intentos.length > 0 && (
+                    <button type="button" className="cs-accion cs-accion-prueba" onClick={reiniciar}
+                      title="Modo prueba: borra los intentos, las pistas y los puntos de este ejercicio">Reiniciar ejercicio</button>
+                  )}
+                  <span className="mx-1 hidden font-mono text-[.7rem] text-white/40 md:inline">Ctrl + Enter</span>
+                  <button id="ejecutar" type="button" className="cs-run" disabled={enviando} onClick={ejecutar}>
+                    {enviando ? <span className="cs-spin" aria-hidden="true" /> : <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 1.8v8.4L10 6z" /></svg>}
+                    {enviando ? (lento ? 'Analizando…' : 'Ejecutando…') : 'Ejecutar'}
+                  </button>
+                </div>}
+          </div>
+          <Consola intentos={intentos} />
+        </div>
 
-      <div className="flex flex-wrap items-center justify-end gap-4">
-        <div className="flex flex-wrap items-center gap-4">
-          <p className="text-right text-xs text-muted">
-            Ejercicios resueltos: <span className="text-fg">{Math.min(resueltos, estado.requeridos)} de {estado.requeridos}</span>
-            {!resuelto && !ej.ya_resuelto && <><br />Este ejercicio suma {puntosPosibles} puntos ({PUNTOS[puntosPosibles]})</>}
+        <div className="flex flex-none flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-line bg-[color-mix(in_srgb,var(--bg-elev)_45%,var(--bg-card))] px-5 py-2.5">
+          <p className="text-xs text-muted">
+            {/* El ejercicio en curso y los ya resueltos se muestran por separado: estar en el 2 no es tener 2 resueltos. */}
+            {ej.posicion ? <>Estás en el ejercicio <span className="text-fg">{ej.posicion}</span> · </> : <>Práctica adicional · </>}
+            resueltos: <span className="text-fg">{Math.min(resueltos, estado.requeridos)} de {estado.requeridos}</span>
+            {!resuelto && !ej.ya_resuelto && <> · este ejercicio suma {puntosPosibles} puntos ({PUNTOS[puntosPosibles]})</>}
           </p>
+          {error && <p role="alert" className="text-xs text-red">{error}</p>}
           {aprobado
-            ? <Link to="/app/consolidar" className="btn btn-soft">Continuar a Consolidar <span className="arrow">→</span></Link>
-            : <button type="button" className="btn btn-soft" disabled title={`Resolvé ${estado.requeridos} ejercicios para habilitarlo`}>Continuar a Consolidar</button>}
+            ? <Link to="/app/consolidar" className="btn btn-sm border-transparent text-white hover:brightness-110" style={{ background: 'var(--green)' }}>Continuar a Consolidar →</Link>
+            : <button type="button" className="btn btn-soft btn-sm" disabled title={`Resolvé ${estado.requeridos} ejercicios para habilitarlo`}>Continuar a Consolidar</button>}
         </div>
-      </div>
-    </div>
+      </section>
+    </Pantalla>
   )
 }
 
