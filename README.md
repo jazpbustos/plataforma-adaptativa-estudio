@@ -20,6 +20,8 @@ plataforma-estudio/
 las dependencias; después compila el frontend, levanta el backend (que sirve también la página) y abre
 http://localhost:8000. Necesita Python 3.11+, Node y el archivo `backend/.env`. Para cerrarlo, cerrar la ventana.
 
+**En macOS o Linux:** `bash iniciar.sh`, desde la raíz del proyecto, hace lo mismo que `iniciar.bat`. Para cerrarlo, Ctrl+C.
+
 **Para las pruebas manuales** (con el servidor cerrado, desde `backend/`): `python -m app.pruebas reiniciar` deja la base
 sin estudiantes ni progreso (conserva temas, ejercicios y fuentes) y `python -m app.pruebas pasar-dias 3` simula que
 pasaron días, para probar el reajuste del plan. `python -m app.pruebas preparar practicar` (o `consolidar`) deja aprobados

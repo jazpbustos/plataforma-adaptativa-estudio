@@ -1,2 +1,3 @@
 # El arranque en Windows: finales de linea CRLF.
 *.bat text eol=crlf
+*.sh text eol=lf
