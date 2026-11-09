@@ -1,8 +1,0 @@
-# Lo completa instalar.sh la primera vez. Son secretos: este archivo no se sube al repositorio.
-DOMINIO=
-JWT_SECRET=
-ANTHROPIC_API_KEY=
-JUDGE0_URL=https://judge0-ce.p.rapidapi.com
-JUDGE0_API_KEY=
-GOOGLE_CLIENT_ID=
-CLAVE_ACCESO=
