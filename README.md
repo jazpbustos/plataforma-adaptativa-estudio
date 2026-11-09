@@ -22,7 +22,9 @@ http://localhost:8000. Necesita Python 3.11+, Node y el archivo `backend/.env`. 
 
 **Para las pruebas manuales** (con el servidor cerrado, desde `backend/`): `python -m app.pruebas reiniciar` deja la base
 sin estudiantes ni progreso (conserva temas, ejercicios y fuentes) y `python -m app.pruebas pasar-dias 3` simula que
-pasaron días, para probar el reajuste del plan. `python -m app.diagnostico <plan> "<consulta>"` muestra qué fragmentos
+pasaron días, para probar el reajuste del plan. `python -m app.pruebas preparar practicar` (o `consolidar`) deja aprobados
+los módulos anteriores en el objetivo más reciente, para probar o grabar uno sin recorrer los otros.
+`python -m app.diagnostico <plan> "<consulta>"` muestra qué fragmentos
 recupera una consulta en un plan.
 
 **Con dos terminales (desarrollo):**
@@ -58,7 +60,7 @@ Documentación interactiva de la API: http://localhost:8000/docs · Tests: `cd b
 1. https://console.cloud.google.com → crear proyecto.
 2. *APIs y servicios → Pantalla de consentimiento de OAuth*: tipo **Externo**, completar nombre y mail, agregarte como usuario de prueba.
 3. *Credenciales → Crear credenciales → ID de cliente de OAuth* → **Aplicación web**.
-4. *Orígenes de JavaScript autorizados*: `http://localhost` y `http://localhost:5173` (después, la URL de Railway/Render).
+4. *Orígenes de JavaScript autorizados*: `http://localhost:8000` (con `iniciar.bat`) y `http://localhost:5173` (con `npm run dev`).
 5. Copiar el Client ID en `backend/.env`. No hace falta el *client secret*: solo se verifican ID tokens.
 
 ## 3. Cómo funciona el login
@@ -237,9 +239,10 @@ puntos. El plan se reajusta según el avance, puede extenderse y, al alcanzar el
 Si una respuesta del modelo que tiene que ser JSON se corta por el límite de tokens, se pide de nuevo con el doble de
 espacio (`services/llm.py`).
 
-## 9. Despliegue
+## 9. Ejecución
 
-La demo se publica en Railway como un solo servicio (API + frontend compilado). La configuración paso a paso está en [DESPLIEGUE.md](DESPLIEGUE.md).
+El prototipo se ejecuta en local: con `iniciar.bat` (sección 1) queda la API y el frontend compilado en
+`http://localhost:8000`. No requiere un servidor público.
 
 ## 10. Pruebas automáticas
 

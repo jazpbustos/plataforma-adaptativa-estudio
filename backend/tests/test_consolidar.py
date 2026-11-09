@@ -235,3 +235,19 @@ def test_no_concluyente_no_se_computa_y_pide_ampliar(client, modelo):
     assert r["resultado"] == "no concluyente" and r["presentes"] is None
     assert "caso recursivo que se acerca al caso base" in r["charla"]["mensajes"][-1]["texto"]
     assert r["dominio"] == 64  # 0,3 × 80 + 0,4 × 100: la explicación no concluyente no suma
+
+
+def test_preparar_habilita_los_modulos_para_grabar(client, capsys):
+    """El comando de pruebas deja aprobado lo anterior al módulo pedido, sin tocar lo que ya estaba."""
+    from app import pruebas
+    base = f"/api/plans/{client.plan}"
+    assert client.get(f"{base}/consolidar").json()["modulo"]["estado"] == "bloqueado"
+    pruebas.preparar("practicar")
+    assert client.get(f"{base}/practicar").status_code == 200
+    assert client.get(f"{base}/consolidar").json()["modulo"]["estado"] == "bloqueado"
+    pruebas.preparar("consolidar", "demo@plataforma.local")
+    assert client.get(f"{base}/consolidar").json()["modulo"]["estado"] == "habilitado"
+    pruebas.preparar("consolidar")
+    assert "no hacía falta nada" in capsys.readouterr().out
+    pruebas.preparar("consolidar", "otro@correo.com")
+    assert "No hay ningún objetivo" in capsys.readouterr().out
