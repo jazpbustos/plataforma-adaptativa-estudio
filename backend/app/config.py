@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./plataforma.db"
     frontend_origin: str = "http://localhost:5173"
     dev_login: bool = False
+    # Ingreso con clave de acceso, para quien no tiene una cuenta de Google autorizada (por ejemplo, los docentes que
+    # evalúan el prototipo). Vacío: deshabilitado. Es un secreto: va en el .env o en las variables del servidor.
+    clave_acceso: str = ""
     cookie_secure: bool = False  # en producción (HTTPS) va en true: atributo Secure de la cookie
     upload_dir: str = "./uploads"
     chroma_dir: str = "./chroma"  # base vectorial (ChromaDB) con los fragmentos del material

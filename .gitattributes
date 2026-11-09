@@ -3,3 +3,4 @@
 Dockerfile text eol=lf
 # El arranque en Windows: finales de linea CRLF.
 *.bat text eol=crlf
+Caddyfile text eol=lf

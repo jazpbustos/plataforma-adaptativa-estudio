@@ -376,3 +376,20 @@ def test_login_google_rechaza_token_de_otra_app(client, monkeypatch):
 def test_login_google_rechaza_correo_no_verificado(client, monkeypatch):
     _google(monkeypatch, aud="mi-cliente.apps.googleusercontent.com", verificado=False)
     assert client.post("/api/auth/google", json={"access_token": "x" * 40}).status_code == 401
+
+
+def test_ingreso_con_clave_de_acceso(client, monkeypatch):
+    """Sin cuenta de Google: con la clave correcta entra y cada correo tiene su propia cuenta."""
+    from app.config import settings
+    url = "/api/auth/clave"
+    datos = {"nombre": "Docente Uno", "correo": "Docente1@Facultad.edu", "clave": "tfg-2026"}
+    assert client.post(url, json=datos).status_code == 404  # deshabilitado sin CLAVE_ACCESO
+    monkeypatch.setattr(settings, "clave_acceso", "tfg-2026")
+    assert client.get("/api/auth/config").json()["clave_acceso"] is True
+    assert client.post(url, json={**datos, "clave": "otra"}).status_code == 401
+    assert client.post(url, json={**datos, "correo": "no-es-un-correo"}).status_code == 422
+    r = client.post(url, json=datos)
+    assert r.status_code == 200 and r.json()["email"] == "docente1@facultad.edu" and r.json()["name"] == "Docente Uno"
+    assert client.get("/api/auth/me").json()["email"] == "docente1@facultad.edu"
+    otro = client.post(url, json={**datos, "correo": "docente2@facultad.edu"}).json()
+    assert otro["id"] != r.json()["id"]

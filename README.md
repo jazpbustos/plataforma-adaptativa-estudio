@@ -47,6 +47,10 @@ npm run dev                      # http://localhost:5173
 ```
 
 Sin `GOOGLE_CLIENT_ID` igual podés entrar con **Entrar en modo demo** (requiere `DEV_LOGIN=true`).
+
+**Ingreso con clave de acceso** (para quien no tiene una cuenta de Google autorizada, como los docentes que evalúan el
+prototipo): se habilita con `CLAVE_ACCESO=<una clave>` en el `.env`. En la pantalla de ingreso aparece "Ingresar con clave
+de acceso"; cada persona pone su nombre, su correo y la clave, y con el mismo correo retoma su progreso.
 Documentación interactiva de la API: http://localhost:8000/docs · Tests: `cd backend && pytest`
 
 ## 2. Obtener el Client ID de Google
@@ -73,6 +77,7 @@ Documentación interactiva de la API: http://localhost:8000/docs · Tests: `cd b
 |---|---|---|
 | GET | `/api/auth/config` | Client ID y si está habilitado el modo demo |
 | POST | `/api/auth/google` | Login con ID token de Google |
+| POST | `/api/auth/clave` | Ingreso con nombre, correo y clave de acceso (solo con `CLAVE_ACCESO`) |
 | POST | `/api/auth/dev` | Login demo (solo `DEV_LOGIN=true`) |
 | GET | `/api/auth/me` | Usuario actual |
 | POST | `/api/auth/logout` | Cierra sesión |

@@ -92,7 +92,7 @@ export default function Landing() {
       <CutFooter>
         <footer className="relative mx-auto grid max-w-[1180px] gap-1 px-4 pt-12 pb-9 text-center text-xs text-muted sm:px-10">
           <span>Plataforma adaptativa de estudio con Inteligencia Artificial</span>
-          <span>© {new Date().getFullYear()} · Desarrollado por Jazmín Bustos</span>
+          <span>© {new Date().getFullYear()} · Desarrollado por Jazmín Bustos · <Link to="/privacidad" className="underline-offset-2 hover:text-fg hover:underline">Privacidad</Link></span>
         </footer>
       </CutFooter>
       </Page>

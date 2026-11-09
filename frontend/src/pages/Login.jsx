@@ -7,7 +7,7 @@ import { Floaty, DocDoodle, CodeDoodle, MedalDoodle, QuizDoodle } from '../compo
 import Synapse from '../components/Synapse.jsx'
 
 export default function Login() {
-  const { user, config, loading, loginGoogle, loginDev } = useAuth()
+  const { user, config, loading, loginGoogle, loginClave, loginDev } = useAuth()
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   // HU-001: el primer ingreso (todavía sin objetivo de estudio) va a la configuración; si ya tiene uno, al Inicio.
@@ -36,7 +36,7 @@ export default function Login() {
           </div>
 
           <div className="lg-card">
-            <div className="lg-gtitle"><span>Ingresá con tu cuenta de Google</span></div>
+            <div className="lg-gtitle"><span>{config?.google_client_id && config?.clave_acceso ? 'Ingresá a la plataforma' : config?.clave_acceso ? 'Ingresá con tu clave de acceso' : 'Ingresá con tu cuenta de Google'}</span></div>
             {loading ? <Synapse>Preparando</Synapse>
               : config?.offline ? <p className="text-sm text-red">No se pudo conectar con el servidor. Levantá el backend en el puerto 8000.</p>
               : (
@@ -45,8 +45,14 @@ export default function Login() {
                     <GoogleOAuthProvider clientId={config.google_client_id} locale="es">
                       <GoogleButton disabled={busy} onToken={(token) => run(() => loginGoogle(token))} onError={setError} />
                     </GoogleOAuthProvider>
-                  ) : (
+                  ) : !config?.clave_acceso && (
                     <p className="font-mono text-xs text-orange">Falta GOOGLE_CLIENT_ID en backend/.env</p>
+                  )}
+                  {config?.clave_acceso && (
+                    <>
+                      {config?.google_client_id && <div className="flex w-full items-center gap-3 text-xs text-muted"><span className="h-px flex-1 bg-line" />o con una clave de acceso<span className="h-px flex-1 bg-line" /></div>}
+                      <IngresoConClave disabled={busy} abierto={!config?.google_client_id} onEnviar={(datos) => run(() => loginClave(datos))} />
+                    </>
                   )}
                   {config?.dev_login && (
                     <>
@@ -59,11 +65,35 @@ export default function Login() {
             {busy && <Synapse>Conectando tu cuenta</Synapse>}
             {error && <p role="alert" className="text-sm text-red">{error}</p>}
           </div>
-          <p className="max-w-[24rem] text-xs text-muted">Solo usamos tu nombre, correo y foto de perfil de Google para identificarte. Si es tu primera vez, la cuenta se crea sola.</p>
+          <p className="max-w-[24rem] text-xs text-muted">Solo usamos tu nombre, correo{config?.google_client_id ? ' y foto de perfil de Google' : ''} para identificarte. Si es tu primera vez, la cuenta se crea sola. <Link to="/privacidad" className="underline underline-offset-2 hover:text-fg">Política de privacidad</Link>.</p>
         </section>
       </main>
       </div>
     </div>
+  )
+}
+
+/*
+  Ingreso con la clave de acceso que da la autora (por ejemplo, a los docentes), sin cuenta de Google. El correo
+  identifica a cada persona: con el mismo correo se retoma el mismo progreso.
+*/
+function IngresoConClave({ disabled, abierto, onEnviar }) {
+  const [ver, setVer] = useState(abierto)
+  const [datos, setDatos] = useState({ nombre: '', correo: '', clave: '' })
+  const campo = (k, etiqueta, tipo, auto) => (
+    <label className="grid gap-1 text-left text-xs text-muted">{etiqueta}
+      <input type={tipo} required autoComplete={auto} value={datos[k]} onChange={(e) => setDatos({ ...datos, [k]: e.target.value })}
+        className="rounded-lg border border-line bg-card px-3 py-2 text-sm text-fg outline-none focus:border-violet" />
+    </label>
+  )
+  if (!ver) return <button type="button" className="btn btn-soft w-full" disabled={disabled} onClick={() => setVer(true)}>Ingresar con clave de acceso</button>
+  return (
+    <form className="grid w-full gap-2.5" onSubmit={(e) => { e.preventDefault(); onEnviar(datos) }}>
+      {campo('nombre', 'Tu nombre', 'text', 'name')}
+      {campo('correo', 'Tu correo (con el mismo correo retomás tu progreso)', 'email', 'email')}
+      {campo('clave', 'Clave de acceso', 'password', 'off')}
+      <button type="submit" className="btn btn-primary w-full" disabled={disabled}>Ingresar</button>
+    </form>
   )
 }
 

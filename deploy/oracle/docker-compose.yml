@@ -1,0 +1,33 @@
+# Despliegue en una máquina virtual propia (Oracle Cloud Always Free): la app y Caddy, que le da HTTPS.
+# Se levanta con ./instalar.sh; las variables salen del archivo .env de esta carpeta.
+services:
+  app:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    env_file: .env
+    environment:
+      FRONTEND_ORIGIN: https://${DOMINIO}
+      PORT: "8000"
+    volumes:
+      - datos:/data
+    restart: unless-stopped
+
+  # Proxy con HTTPS automático: pide y renueva solo el certificado para el dominio de sslip.io.
+  caddy:
+    image: caddy:2
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMINIO: ${DOMINIO}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_datos:/data
+    depends_on:
+      - app
+    restart: unless-stopped
+
+volumes:
+  datos:
+  caddy_datos:

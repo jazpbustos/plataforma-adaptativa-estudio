@@ -1,10 +1,13 @@
+import secrets
+import time
+
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
 from sqlmodel import Session, select
 
 from ..config import settings
 from ..db import get_session
 from ..models import Estudiante, ObjetivoEstudio
-from ..schemas import GoogleLoginIn, PreferenciasIn, UserOut
+from ..schemas import ClaveIn, GoogleLoginIn, PreferenciasIn, UserOut
 from ..security import (COOKIE_NAME, clear_session_cookie, current_user, revocar_sesiones, set_session_cookie,
                         usuario_del_token, verify_google_access_token)
 
@@ -35,13 +38,30 @@ def user_out(db: Session, est: Estudiante) -> UserOut:
 @router.get("/config")
 def auth_config():
     """El front lee de acá el client ID: una sola fuente de configuración."""
-    return {"google_client_id": settings.google_client_id or None, "dev_login": settings.dev_login}
+    return {"google_client_id": settings.google_client_id or None, "dev_login": settings.dev_login,
+            "clave_acceso": bool(settings.clave_acceso)}
 
 
 @router.post("/google", response_model=UserOut)
 def login_google(body: GoogleLoginIn, response: Response, db: Session = Depends(get_session)):
     info = verify_google_access_token(body.access_token)
     user = upsert_estudiante(db, info["sub"], info["email"], info.get("name") or info["email"], info.get("picture"))
+    set_session_cookie(response, user)
+    return user_out(db, user)
+
+
+@router.post("/clave", response_model=UserOut)
+def login_clave(body: ClaveIn, response: Response, db: Session = Depends(get_session)):
+    """Ingreso con la clave de acceso que da la autora (por ejemplo, a los docentes que evalúan el prototipo), sin
+    cuenta de Google. Cada persona se identifica con su correo, así su progreso queda separado del de las demás.
+    Deshabilitado si CLAVE_ACCESO está vacía."""
+    if not settings.clave_acceso:
+        raise HTTPException(status.HTTP_404_NOT_FOUND)
+    if not secrets.compare_digest(body.clave.strip().encode(), settings.clave_acceso.encode()):
+        time.sleep(1)  # frena los intentos repetidos de adivinar la clave
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "La clave de acceso no es correcta.")
+    correo = body.correo.strip().lower()
+    user = upsert_estudiante(db, f"clave:{correo}", correo, body.nombre.strip(), None)
     set_session_cookie(response, user)
     return user_out(db, user)
 

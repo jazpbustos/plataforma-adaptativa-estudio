@@ -14,6 +14,12 @@ class GoogleLoginIn(BaseModel):
     access_token: str = Field(min_length=20)  # el que devuelve el popup de Google
 
 
+class ClaveIn(BaseModel):
+    nombre: str = Field(min_length=2, max_length=80)
+    correo: str = Field(max_length=120, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    clave: str = Field(min_length=1, max_length=200)
+
+
 class UserOut(BaseModel):
     id: int
     email: str
