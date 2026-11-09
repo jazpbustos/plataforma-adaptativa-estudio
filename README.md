@@ -36,7 +36,6 @@ cd backend
 python -m venv .venv
 .venv\Scripts\activate          # Windows  (en Mac/Linux: source .venv/bin/activate)
 pip install -r requirements.txt
-copy .env.example .env          # completar GOOGLE_CLIENT_ID y JWT_SECRET
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -47,6 +46,19 @@ cd frontend
 npm install
 npm run dev                      # http://localhost:5173
 ```
+
+Antes de iniciar se crea `backend/.env` (no se versiona) con estas variables:
+
+```
+ANTHROPIC_API_KEY=clave-de-anthropic
+JWT_SECRET=una-cadena-larga-y-aleatoria
+CLAVE_ACCESO=clave-para-ingresar
+EJECUCION_LOCAL=true
+GOOGLE_CLIENT_ID=                # opcional: ingreso con Google (sección 2)
+```
+
+Las fuentes académicas se cargan una vez, después de la primera ejecución: `python -m app.fuentes` (sección 7).
+La guía de instalación paso a paso acompaña la entrega.
 
 Sin `GOOGLE_CLIENT_ID` igual podés entrar con **Entrar en modo demo** (requiere `DEV_LOGIN=true`).
 
